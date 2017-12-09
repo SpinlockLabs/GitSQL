@@ -1,1 +1,13 @@
+# Database Output
 /db/build/
+
+# IDEs
+/.idea/
+
+# Python
+*.pyc
+
+# CMake
+CMakeFiles/
+cmake-build-*/
+out/
