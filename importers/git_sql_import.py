@@ -5,6 +5,8 @@ import sys
 
 from pygit2 import Repository
 
+obj_prepared = "PREPARE obj(TEXT, TEXT) AS INSERT INTO objects VALUES ($1, decode($2, 'hex')) ON CONFLICT DO NOTHING;"
+
 parser = ArgumentParser()
 parser.add_argument("repository")
 parser.add_argument("output")
@@ -55,15 +57,12 @@ def encode_git_object(oid):
 def generate_sql_object(oid):
     data = encode_git_object(oid)
     rid = str(oid)
-    sql = 'INSERT INTO "objects" ("hash", "content") VALUES ('
-    sql += "'" + rid + "', "
-    sql += "decode('"
-    sql += data.hex()
-    sql += "', 'hex')) ON CONFLICT DO NOTHING;"
+    sql = "EXECUTE obj('" + str(oid) + "', '" + data.hex() + "');"
     return sql
 
 
 def generate_sql_objects():
+    yield obj_prepared
     count = 0
     for oid in repo:
         yield generate_sql_object(oid)
