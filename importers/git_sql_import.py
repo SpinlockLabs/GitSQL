@@ -16,12 +16,26 @@ parser.add_argument(
     action="store_true"
 )
 
+parser.add_argument(
+    "--total",
+    help="Total Number of Objects"
+)
+
+total = 0
+
 args = parser.parse_args()
+
+if args.total:
+    total = int(args.total)
 
 repo = Repository(args.repository)
 
 def eprint(*args, **kwargs):
     print(*args, file=sys.stderr, **kwargs)
+
+def show_info(cnt: int):
+    percent = (cnt / total) * 100.0
+    eprint("{0}% ({1} objects out of {2})".format(int(percent), cnt, total))
 
 def translate_type_id(i):
     if i == 1:
@@ -67,7 +81,7 @@ def generate_sql_objects():
     for oid in repo:
         yield generate_sql_object(oid)
         count += 1
-        eprint("%i objects" % count)
+        show_info(count)
 
 
 def generate_sql_ref(ref):
