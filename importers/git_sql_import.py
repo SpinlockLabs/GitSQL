@@ -1,6 +1,8 @@
 from hashlib import sha1
 from argparse import ArgumentParser
 
+import sys
+
 from pygit2 import Repository
 
 parser = ArgumentParser()
@@ -16,6 +18,8 @@ args = parser.parse_args()
 
 repo = Repository(args.repository)
 
+def eprint(*args, **kwargs):
+    print(*args, file=sys.stderr, **kwargs)
 
 def translate_type_id(i):
     if i == 1:
@@ -60,8 +64,11 @@ def generate_sql_object(oid):
 
 
 def generate_sql_objects():
+    count = 0
     for oid in repo:
         yield generate_sql_object(oid)
+        count += 1
+        eprint("%i objects" % count)
 
 
 def generate_sql_ref(ref):
@@ -87,9 +94,12 @@ def generate_sql_file():
     yield from generate_sql_objects()
     yield from generate_sql_refs()
 
-
-with open(args.output, mode='w+') as file:
-    file.seek(0)
+if args.output == '-':
     for line in generate_sql_file():
-        file.write(line)
-        file.write('\n')
+        print(line)
+else:
+    with open(args.output, mode='w+') as file:
+        file.seek(0)
+        for line in generate_sql_file():
+            file.write(line)
+            file.write('\n')
