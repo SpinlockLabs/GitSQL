@@ -9,8 +9,8 @@ BEGIN
   RETURN QUERY
   WITH RECURSIVE tree(hash, parent, depth) AS (
 	SELECT
-		"hash",
-		"parent",
+    "hash",
+    "parent",
     1
 	FROM "commits" c
 	WHERE "hash" = head
