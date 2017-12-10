@@ -2,8 +2,8 @@
 /db/build/
 
 # IDEs
-/.idea/
-
+.idea/
+.vscode/
 # Python
 *.pyc
 
@@ -11,3 +11,6 @@
 CMakeFiles/
 cmake-build-*/
 out/
+
+# Other
+work/

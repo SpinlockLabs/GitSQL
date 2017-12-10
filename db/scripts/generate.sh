@@ -1,26 +1,28 @@
 #!/usr/bin/env bash
 set -e
 
-cd $(dirname ${0})/..
+cd "$(dirname ${0})/.."
 
 OUT="build/git.sql"
 
-mkdir -p $(dirname "${OUT}")
+mkdir -p "$(dirname "${OUT}")"
 
 if [ -f "${OUT}" ]
 then
   rm "${OUT}"
 fi
 
-echo "-- Git SQL --" >> ${OUT}
+echo "-- Git SQL --" >> "${OUT}"
 function sql() {
-  for F in ${@}
+  for F in "${@}"
   do
-    echo "[Use] ${F}"
-    echo "" >> "${OUT}"
-    echo "-- File: ${F} --" >> "${OUT}"
-    echo "" >> "${OUT}"
-    cat ${F} >> "${OUT}"
+    echo "[Include] ${F}"
+    {
+      echo ""
+      echo "-- File ${F} --"
+      echo ""
+      cat "${F}"
+    } >> "${OUT}"
   done
 }
 

@@ -1,3 +1,5 @@
+DROP VIEW IF EXISTS headers CASCADE;
+
 CREATE VIEW headers AS WITH _headers AS (
     SELECT
       objects.hash,

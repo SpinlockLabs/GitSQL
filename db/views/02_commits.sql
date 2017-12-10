@@ -1,3 +1,5 @@
+DROP VIEW IF EXISTS commits CASCADE;
+
 CREATE VIEW commits AS WITH raw_commit_texts AS (
     SELECT
       headers.hash,
@@ -24,7 +26,8 @@ SELECT
   (regexp_matches(subsections.meta, 'committer ([^\n]+\>)'))[1] AS committer,
   to_timestamp((regexp_matches(subsections.meta, 'author (?:[^\n]+) (([\d])+)'::TEXT))[1]::BIGINT) AS author_time,
   to_timestamp((regexp_matches(subsections.meta, 'committer (?:[^\n]+) (([\d])+)'::TEXT))[1]::BIGINT) AS commit_time,
-  subsections.message
+  subsections.message,
+  (regexp_matches(subsections.meta, '-----BEGIN.*SIGNATURE-----'))[1] as pgp
 FROM subsections
 ORDER BY (
   to_timestamp((regexp_matches(subsections.meta, 'committer (?:[^\n]+) (([\d])+)'))[1]::BIGINT)
