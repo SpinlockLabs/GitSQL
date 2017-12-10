@@ -6,7 +6,7 @@ CREATE VIEW commits AS WITH raw_commit_texts AS (
       encode(contents.content, 'escape' :: TEXT) AS info
     FROM headers
       JOIN contents ON headers.hash = contents.hash
-    WHERE headers.type = 'commit' :: TEXT
+    WHERE headers.type = 'commit'::TEXT
 ),
 subsections AS (
     SELECT
