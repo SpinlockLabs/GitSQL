@@ -11,7 +11,7 @@ BEGIN
 	SELECT
 		"hash",
 		"parent",
-    	1
+    1
 	FROM "commits" c
 	WHERE "hash" = head
     UNION ALL
