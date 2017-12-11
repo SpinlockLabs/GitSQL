@@ -3,10 +3,9 @@ DROP VIEW IF EXISTS commits CASCADE;
 CREATE VIEW commits AS WITH raw_commit_texts AS (
     SELECT
       headers.hash,
-      encode(contents.content, 'escape' :: TEXT) AS info
+      encode(headers.content, 'escape' :: TEXT) AS info
     FROM headers
-      JOIN contents ON headers.hash = contents.hash
-    WHERE headers.type = 'commit'::TEXT
+    WHERE headers.type::TEXT = 'commit'::TEXT
 ),
 subsections AS (
     SELECT

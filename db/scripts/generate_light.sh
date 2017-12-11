@@ -3,7 +3,7 @@ set -e
 
 cd "$(dirname ${0})/.."
 
-OUT="build/git.sql"
+OUT="build/git-light.sql"
 
 mkdir -p "$(dirname "${OUT}")"
 
@@ -28,8 +28,7 @@ function sql() {
 
 sql headers/*.sql
 sql types/*.sql
-sql tables/*.sql
-sql functions/specials/*.sql
+sql tables/*refs.sql
+sql functions/*.sql
 sql indexes/*.sql
 sql views/*.sql
-sql functions/*.sql
