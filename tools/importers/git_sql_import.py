@@ -4,18 +4,20 @@ from argparse import ArgumentParser
 import sys
 import pygit2
 
-obj_prepared = 'PREPARE obj(TEXT, TEXT) AS ' +\
-               'INSERT INTO objects VALUES ($1, decode($2, \'hex\'))' +\
+obj_prepared = 'PREPARE obj(TEXT, TEXT) AS ' + \
+               'INSERT INTO objects VALUES ($1, decode($2, \'hex\'))' + \
                ' ON CONFLICT DO NOTHING;'
 
 parser = ArgumentParser()
 parser.add_argument("repository")
 parser.add_argument("output")
+
 parser.add_argument(
     "--no-prepared-header",
     help="Disables the PREPARE statements.",
     action="store_true"
 )
+
 parser.add_argument(
     "--update",
     help="Disables Truncation",
@@ -42,8 +44,11 @@ def eprint(*args, **kwargs):
 
 
 def show_info(cnt: int):
-    percent = (cnt / total) * 100.0
-    eprint("{0}% ({1} objects out of {2})".format(int(percent), cnt, total))
+    if total == 0:
+        eprint("{0} objects generated".format(cnt))
+    else:
+        percent = (cnt / total) * 100.0
+        eprint("{0}% ({1} objects out of {2})".format(int(percent), cnt, total))
 
 
 def translate_type_id(i):
