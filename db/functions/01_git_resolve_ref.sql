@@ -5,7 +5,7 @@ DECLARE
   tmp TEXT;
 BEGIN
   tmp := ref_name;
-  WHILE tmp != '' AND tmp IS NOT NULL OR (tmp = 'HEAD' OR tmp LIKE '%/%') LOOP
+  WHILE tmp = 'HEAD' OR tmp LIKE '%/%' LOOP
     SELECT "target" INTO tmp FROM "refs" WHERE "name" = tmp;
   END LOOP;
   RETURN tmp;

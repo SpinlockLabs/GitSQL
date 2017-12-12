@@ -85,7 +85,6 @@ def find_needed(oids: list):
     try:
         cursor.execute('SELECT hash FROM objects WHERE array[hash] <@ {0}'.format(array_str))
         rows = cursor.fetchall()
-        print(rows)
         for row in rows:
             nhash = row[0]
             oids.remove(nhash)
@@ -101,7 +100,8 @@ conn.commit()
 cursor.execute('PREPARE t(TEXT[]) AS INSERT INTO objlist(hash) SELECT * FROM unnest($1);')
 total = 0
 for section in split_every(500, repo):
-    cursor.execute('EXECUTE t(%s)', ([str(x) for x in section],))
+    hashes = [str(x) for x in section]
+    cursor.execute('EXECUTE t(%s)', (hashes,))
     total += len(section)
     print('loading %i objects for comparison' % total)
 cursor.execute('SELECT hash FROM objlist c WHERE NOT EXISTS (SELECT 1 FROM objects s WHERE s.hash = c.hash)')
@@ -112,7 +112,7 @@ for row in cursor:
     print("insert object %s" % obj_hash)
     bdat = encode_git_object(pygit2.Oid(hex=obj_hash))
     bina = Binary(bdat)
-    cn.execute('INSERT INTO objects (hash, content) VALUES (%s, %s)', (obj_hash, bina,))
+    cn.execute('INSERT INTO objects (hash, content) VALUES (%S, %S)', (obj_hash, bina,))
 
 conn.commit()
 for ref_name in repo.references:  # type: str
@@ -128,7 +128,7 @@ for ref_name in repo.references:  # type: str
 
     if target != current_target:
         cn.execute(
-            'INSERT INTO refs (name, target) VALUES (%s, %s) ON CONFLICT (name) DO UPDATE SET target = %s;',
+            'INSERT INTO refs (name, target) VALUES (%S, %S) ON CONFLICT (name) DO UPDATE SET target = %S;',
             (ref_name, target, target,)
         )
         print('updated %s to %s' % (ref_name, target))

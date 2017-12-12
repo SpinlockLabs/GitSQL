@@ -1,10 +1,10 @@
 #!/usr/bin/env python3
+from configparser import ConfigParser
 from sys import stderr, exit, argv
 from zlib import compress
-from configparser import ConfigParser
 
 from japronto import Application
-from psycopg2cffi import connect
+from psycopg2cffi.pool import SimpleConnectionPool
 
 
 class NoSuchRepository(Exception):
@@ -28,6 +28,8 @@ for item in cfg.items('connection'):
     db_conn_info += " {}='{}'".format(item[0], item[1])
 db_conn_info = db_conn_info.lstrip()
 
+object_count = 0
+
 
 def map_repo_to_db(name: str):
     mapped = cfg.get('serve', name, fallback=None)
@@ -36,19 +38,28 @@ def map_repo_to_db(name: str):
     return mapped
 
 
+pools = {}  # type: dict[str, SimpleConnectionPool]
+
+
 def grab_connection(request):
     repo_name = request.match_dict['repo']
     if repo_name is None:
         raise NoSuchRepository(None)
 
     db_name = map_repo_to_db(repo_name)
-    conn_info = db_conn_info + (" dbname='{0}'".format(db_name))
-    conn = connect(conn_info)
-    return conn
+    if not db_name in pools:
+        conn_info = db_conn_info + (" dbname='{0}'".format(db_name))
+        pools[db_name] = SimpleConnectionPool(1, 10, conn_info)
+    pool = pools[db_name]
+    return pool, pool.getconn()
+
+
+def put_connection(pool, conn):
+    pool.putconn(conn)
 
 
 def handle_object_route(request):
-    conn = grab_connection(request)
+    pool, conn = grab_connection(request)
     cursor = conn.cursor()
     try:
         prefix = request.match_dict['hash_prefix']
@@ -57,10 +68,12 @@ def handle_object_route(request):
 
         cursor.execute("SELECT content FROM objects WHERE hash = %s", (object_hash,))
         binary = cursor.fetchone()[0]
+        global object_count
+        object_count += 1
         return request.Response(body=compress(binary.tobytes()))
     finally:
         cursor.close()
-        conn.close()
+        put_connection(pool, conn)
 
 
 def handle_repo_not_found(request, exception):
@@ -68,7 +81,7 @@ def handle_repo_not_found(request, exception):
 
 
 def handle_refs_route(request):
-    conn = grab_connection(request)
+    pool, conn = grab_connection(request)
     cursor = conn.cursor()
 
     try:
@@ -84,7 +97,7 @@ def handle_refs_route(request):
         return request.Response(text=result)
     finally:
         cursor.close()
-        conn.close()
+        put_connection(pool, conn)
 
 
 app = Application()
@@ -103,5 +116,16 @@ app.add_error_handler(
     NoSuchRepository,
     handle_repo_not_found
 )
+
+
+def object_count_info():
+    global object_count
+    if object_count > 0:
+        print("[Statistics] %i objects were fetched" % object_count)
+        object_count = 0
+    app.loop.call_later(1, object_count_info)
+
+
+app.loop.call_later(1, object_count_info)
 
 app.run()
