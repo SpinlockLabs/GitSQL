@@ -29,6 +29,8 @@ function sql() {
 sql headers/*.sql
 sql types/*.sql
 sql tables/*refs.sql
-sql functions/*.sql
+sql functions/specials/*.sql
 sql indexes/*.sql
 sql views/*.sql
+sql functions/*.sql
+

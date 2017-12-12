@@ -6,6 +6,12 @@ from zlib import compress
 from japronto import Application
 from psycopg2cffi.pool import SimpleConnectionPool
 
+from concurrent.futures import ThreadPoolExecutor
+
+import asyncio
+
+executor = ThreadPoolExecutor(max_workers=10)
+
 
 class NoSuchRepository(Exception):
     def __init__(self, repo):
@@ -41,8 +47,7 @@ def map_repo_to_db(name: str):
 pools = {}  # type: dict[str, SimpleConnectionPool]
 
 
-def grab_connection(request):
-    repo_name = request.match_dict['repo']
+def grab_connection(repo_name):
     if repo_name is None:
         raise NoSuchRepository(None)
 
@@ -58,22 +63,37 @@ def put_connection(pool, conn):
     pool.putconn(conn)
 
 
-def handle_object_route(request):
-    pool, conn = grab_connection(request)
-    cursor = conn.cursor()
-    try:
-        prefix = request.match_dict['hash_prefix']
-        suffix = request.match_dict['hash_suffix']
-        object_hash = prefix + suffix
+def fetch_object(repo_name, object_hash):
+    cursor = None
+    pool = None
+    conn = None
+    binary = None
 
+    try:
+        pool, conn = grab_connection(repo_name)
+        cursor = conn.cursor()
         cursor.execute("SELECT content FROM objects WHERE hash = %s", (object_hash,))
         binary = cursor.fetchone()[0]
-        global object_count
-        object_count += 1
-        return request.Response(body=compress(binary.tobytes()))
     finally:
         cursor.close()
         put_connection(pool, conn)
+        return binary
+
+
+async def handle_object_route(request):
+    prefix = request.match_dict['hash_prefix']
+    suffix = request.match_dict['hash_suffix']
+    object_hash = prefix + suffix
+
+    binary = await asyncio.get_event_loop().run_in_executor(
+        executor,
+        fetch_object,
+        request.match_dict['repo'],
+        object_hash
+    )
+    global object_count
+    object_count += 1
+    return request.Response(body=compress(binary.tobytes()))
 
 
 def handle_repo_not_found(request, exception):
@@ -81,7 +101,7 @@ def handle_repo_not_found(request, exception):
 
 
 def handle_refs_route(request):
-    pool, conn = grab_connection(request)
+    pool, conn = grab_connection(request.match_dict['repo'])
     cursor = conn.cursor()
 
     try:
