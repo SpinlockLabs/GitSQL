@@ -99,6 +99,7 @@ cursor.execute('TRUNCATE objlist;')
 conn.commit()
 cursor.execute('PREPARE t(TEXT[]) AS INSERT INTO objlist(hash) SELECT * FROM unnest($1);')
 total = 0
+
 for section in split_every(500, repo):
     hashes = [str(x) for x in section]
     cursor.execute('EXECUTE t(%s)', (hashes,))
@@ -112,9 +113,10 @@ for row in cursor:
     print("insert object %s" % obj_hash)
     bdat = encode_git_object(pygit2.Oid(hex=obj_hash))
     bina = Binary(bdat)
-    cn.execute('INSERT INTO objects (hash, content) VALUES (%S, %S)', (obj_hash, bina,))
+    cn.execute('INSERT INTO objects (hash, content) VALUES (%s, %s)', (obj_hash, bina,))
 
 conn.commit()
+
 for ref_name in repo.references:  # type: str
     ref = repo.references[ref_name]
 
@@ -128,7 +130,7 @@ for ref_name in repo.references:  # type: str
 
     if target != current_target:
         cn.execute(
-            'INSERT INTO refs (name, target) VALUES (%S, %S) ON CONFLICT (name) DO UPDATE SET target = %S;',
+            'INSERT INTO refs (name, target) VALUES (%s, %s) ON CONFLICT (name) DO UPDATE SET target = %s;',
             (ref_name, target, target,)
         )
         print('updated %s to %s' % (ref_name, target))

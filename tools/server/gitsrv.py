@@ -91,13 +91,22 @@ async def handle_object_route(request):
         request.match_dict['repo'],
         object_hash
     )
+
+    if binary is None:
+        print("[WARN] Tried to fetch object %s, but it does not exist." % object_hash)
+        return request.Response(text='Object not found.', code=404)
+
     global object_count
     object_count += 1
     return request.Response(body=compress(binary.tobytes()))
 
 
 def handle_repo_not_found(request, exception):
-    return request.Response(text='Repository Not Found.', code=404)
+    return request.Response(text='Repository not found.', code=404)
+
+
+def handle_info_route(request):
+    return request.Response('Not found.', code=404)
 
 
 def handle_refs_route(request):
@@ -121,6 +130,11 @@ def handle_refs_route(request):
 
 
 app = Application()
+
+app.router.add_route(
+    '/{repo}/objects/info/{info_type}',
+    handle_info_route
+)
 
 app.router.add_route(
     '/{repo}/objects/{hash_prefix}/{hash_suffix}',
