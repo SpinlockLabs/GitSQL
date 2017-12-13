@@ -9,6 +9,7 @@ from psycopg2cffi.pool import SimpleConnectionPool
 from concurrent.futures import ThreadPoolExecutor
 
 import asyncio
+import base64
 
 executor = ThreadPoolExecutor(max_workers=10)
 
@@ -25,6 +26,20 @@ if len(argv) < 2:
 cfg = ConfigParser()
 cfg.read(argv[1])
 
+memcached = None  # type: pylibmc.Client
+
+if cfg.getboolean('memcached', 'enabled', fallback=False):
+    import pylibmc
+
+    servers = str(cfg.get('memcached', 'servers', fallback='127.0.0.1:11211'))
+
+    memcached = pylibmc.Client(
+        servers.split(' '),
+        username=cfg.get('memcached', 'username', fallback=None),
+        password=cfg.get('memcached', 'password', fallback=None),
+        binary=True
+    )
+
 if not cfg.has_section('connection'):
     print("ERROR: Connection configuration section missing.", file=stderr)
     exit(1)
@@ -35,6 +50,7 @@ for item in cfg.items('connection'):
 db_conn_info = db_conn_info.lstrip()
 
 object_count = 0
+cache_hit_count = 0
 
 
 def map_repo_to_db(name: str):
@@ -52,7 +68,7 @@ def grab_connection(repo_name):
         raise NoSuchRepository(None)
 
     db_name = map_repo_to_db(repo_name)
-    if not db_name in pools:
+    if db_name not in pools:
         conn_info = db_conn_info + (" dbname='{0}'".format(db_name))
         pools[db_name] = SimpleConnectionPool(1, 10, conn_info)
     pool = pools[db_name]
@@ -64,19 +80,26 @@ def put_connection(pool, conn):
 
 
 def fetch_object(repo_name, object_hash):
+    binary = None
     cursor = None
     pool = None
     conn = None
-    binary = None
 
     try:
         pool, conn = grab_connection(repo_name)
         cursor = conn.cursor()
         cursor.execute("SELECT content FROM objects WHERE hash = %s", (object_hash,))
         binary = cursor.fetchone()[0]
+
+        if memcached is not None:
+            with memcached.reserve() as memc:
+                binary_b64 = base64.b64encode(binary)
+                memc.set(cache_key, binary_b64)
+
     finally:
         cursor.close()
         put_connection(pool, conn)
+
         return binary
 
 
@@ -85,20 +108,42 @@ async def handle_object_route(request):
     suffix = request.match_dict['hash_suffix']
     object_hash = prefix + suffix
 
-    binary = await asyncio.get_event_loop().run_in_executor(
-        executor,
-        fetch_object,
-        request.match_dict['repo'],
-        object_hash
-    )
+    binary = None
+
+    if memcached:
+        cache_key = 'git.object[%s]' % object_hash
+        cached_b64 = memcached.get(cache_key, None)
+        if cached_b64 is not None:
+            global cache_hit_count
+            binary = base64.b64decode(cached_b64)
+            cache_hit_count += 1
+
+    if binary is None:
+        binary = await asyncio.get_event_loop().run_in_executor(
+            executor,
+            fetch_object,
+            request.match_dict['repo'],
+            object_hash
+        )
+
+        if memcached and len(binary) < 1024 * 1024:
+            try:
+                cache_key = 'git.object[%s]' % object_hash
+                b64 = base64.b64encode(binary)
+                memcached.set(cache_key, b64)
+            except pylibmc.TooBig:
+                pass
 
     if binary is None:
         print("[WARN] Tried to fetch object %s, but it does not exist." % object_hash)
         return request.Response(text='Object not found.', code=404)
 
+    if type(binary) is bytearray:
+        binary = binary.tobytes()
+
     global object_count
     object_count += 1
-    return request.Response(body=compress(binary.tobytes()))
+    return request.Response(body=compress(binary))
 
 
 def handle_repo_not_found(request, exception):
@@ -154,9 +199,16 @@ app.add_error_handler(
 
 def object_count_info():
     global object_count
+    global cache_hit_count
+
     if object_count > 0:
         print("[Statistics] %i objects were fetched" % object_count)
         object_count = 0
+
+    if cache_hit_count > 0:
+        print("[Statistics] %i objects hit the cache" % cache_hit_count)
+        cache_hit_count = 0
+
     app.loop.call_later(1, object_count_info)
 
 
