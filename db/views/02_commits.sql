@@ -3,7 +3,7 @@ DROP VIEW IF EXISTS commits CASCADE;
 CREATE VIEW commits AS WITH raw_commit_texts AS (
     SELECT
       headers.hash,
-      encode(headers.content, 'escape' :: TEXT) AS info
+      encode(headers.content, 'escape'::TEXT) AS info
     FROM headers
     WHERE headers.type::TEXT = 'commit'::TEXT
 ),

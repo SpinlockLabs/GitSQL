@@ -6,8 +6,8 @@ DECLARE
   type    TEXT;
   _header TEXT;
 BEGIN
-  _header := substring(blob FROM 0 FOR position('\000'::BYTEA IN blob));
-  type := (substring(_header FROM 0 FOR position(' ' IN _header)));
+  _header := trim(both ' ' FROM encode((substring(blob FROM 0 FOR position('\000'::BYTEA IN blob))), 'escape'));
+  type := trim(both ' ' FROM substring(_header FROM 0 FOR position(' ' IN _header)));
 
   IF type = 'commit' THEN
     RETURN 'commit'::objtype;

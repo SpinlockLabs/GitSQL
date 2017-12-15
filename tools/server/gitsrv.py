@@ -3,7 +3,7 @@ from configparser import ConfigParser
 from sys import stderr, exit, argv
 from zlib import compress
 
-from japronto import Application
+from aiohttp import web
 from psycopg2cffi.pool import SimpleConnectionPool
 
 from concurrent.futures import ThreadPoolExecutor
@@ -91,21 +91,38 @@ def fetch_object(repo_name, object_hash):
         cursor.execute("SELECT content FROM objects WHERE hash = %s", (object_hash,))
         binary = cursor.fetchone()[0]
 
-        if memcached is not None:
-            with memcached.reserve() as memc:
-                binary_b64 = base64.b64encode(binary)
-                memc.set(cache_key, binary_b64)
-
     finally:
         cursor.close()
         put_connection(pool, conn)
 
         return binary
 
+def fetch_shallow_pack(repo_name, commit_hash, resp):
+    resp.enable_chunked_encoding()
+
+    binary = None
+    cursor = None
+    pool = None
+    conn = None
+    try:
+        pool, conn = grab_connection(repo_name)
+        cursor = conn.cursor()
+        q = cursor.mogrify("with objects AS (SELECT hash FROM git_shallow_crawl(%s)) SELECT part FROM git_create_pack((SELECT array_agg(hash) FROM objects))", (commit_hash,))
+        cursor.execute(q)
+        cursor.itersize = 10
+        for row in cursor:
+            binary = row[0]
+            resp.write(bytes(binary.tolist()))
+        resp.write_eof()
+    except Exception as e:
+        print(e)
+    finally:
+        cursor.close()
+        put_connection(pool, conn)
 
 async def handle_object_route(request):
-    prefix = request.match_dict['hash_prefix']
-    suffix = request.match_dict['hash_suffix']
+    prefix = request.match_info['hash_prefix']
+    suffix = request.match_info['hash_suffix']
     object_hash = prefix + suffix
 
     binary = None
@@ -122,7 +139,7 @@ async def handle_object_route(request):
         binary = await asyncio.get_event_loop().run_in_executor(
             executor,
             fetch_object,
-            request.match_dict['repo'],
+            request.match_info['repo'],
             object_hash
         )
 
@@ -136,26 +153,37 @@ async def handle_object_route(request):
 
     if binary is None:
         print("[WARN] Tried to fetch object %s, but it does not exist." % object_hash)
-        return request.Response(text='Object not found.', code=404)
+        return Response(text='Object not found.', status=404)
 
     if type(binary) is bytearray:
         binary = binary.tobytes()
+
+    if type(binary) is memoryview:
+        binary = bytes(binary.tolist())
 
     global object_count
     object_count += 1
     return request.Response(body=compress(binary))
 
 
-def handle_repo_not_found(request, exception):
-    return request.Response(text='Repository not found.', code=404)
-
+async def handle_dlpack_route(request):
+    resp = web.StreamResponse(status=200)
+    await resp.prepare(request)
+    await asyncio.get_event_loop().run_in_executor(
+        executor,
+        fetch_shallow_pack,
+        request.match_info['repo'],
+        request.match_info['commit'],
+        resp
+    )
+    return resp
 
 def handle_info_route(request):
-    return request.Response('Not found.', code=404)
+    return web.Response('Not found.', status=404)
 
 
 def handle_refs_route(request):
-    pool, conn = grab_connection(request.match_dict['repo'])
+    pool, conn = grab_connection(request.match_info['repo'])
     cursor = conn.cursor()
 
     try:
@@ -168,32 +196,32 @@ def handle_refs_route(request):
             real = cursor.fetchone()[0]
             result += '{0}\t{1}\n'.format(real, ref)
 
-        return request.Response(text=result)
+        return web.Response(text=result)
     finally:
         cursor.close()
         put_connection(pool, conn)
 
 
-app = Application()
+app = web.Application()
 
-app.router.add_route(
+app.router.add_get(
     '/{repo}/objects/info/{info_type}',
     handle_info_route
 )
 
-app.router.add_route(
+app.router.add_get(
+    '/{repo}/dlpack/{commit}',
+    handle_dlpack_route
+)
+
+app.router.add_get(
     '/{repo}/objects/{hash_prefix}/{hash_suffix}',
     handle_object_route
 )
 
-app.router.add_route(
+app.router.add_get(
     '/{repo}/info/refs',
     handle_refs_route
-)
-
-app.add_error_handler(
-    NoSuchRepository,
-    handle_repo_not_found
 )
 
 
@@ -212,6 +240,6 @@ def object_count_info():
     app.loop.call_later(1, object_count_info)
 
 
-app.loop.call_later(1, object_count_info)
+asyncio.get_event_loop().call_later(1, object_count_info)
 
-app.run()
+web.run_app(app)

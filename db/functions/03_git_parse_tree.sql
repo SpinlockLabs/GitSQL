@@ -7,6 +7,7 @@ CREATE OR REPLACE FUNCTION git_parse_tree(tree_hash TEXT, blob BYTEA)
     )
 AS $BODY$
 import codecs
+import plpy
 
 rblob = blob
 if isinstance(blob, str):
@@ -26,6 +27,9 @@ def parse_item(buff):
     ]
 
 def parse():
+    if rblob == None:
+        raise plpy.Fatal("Blob for tree %s does not exist!" % tree_hash)
+
     buffer = bytearray()
     inside_sha = 0
     for i, value in enumerate(rblob):
