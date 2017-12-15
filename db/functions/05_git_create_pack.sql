@@ -10,10 +10,10 @@ import plpy
 
 
 obj_types = {
-    'commit': 0,
-    'blob': 1,
-    'tree': 2,
-    'tag': 3
+    'commit': 1,
+    'blob': 2,
+    'tree': 3,
+    'tag': 4
 }
 
 
