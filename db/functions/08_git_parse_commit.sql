@@ -1,5 +1,5 @@
 CREATE OR REPLACE FUNCTION git_parse_commit(commit_hash TEXT, blob BYTEA)
-    RETURNS "commits"
+    RETURNS "commit"
 AS $BODY$
 DECLARE
     tree TEXT;
@@ -31,7 +31,7 @@ author_time := to_timestamp((regexp_matches(meta, 'author (?:[^\n]+) (([\d])+)':
 commit_time := to_timestamp((regexp_matches(meta, 'committer (?:[^\n]+) (([\d])+)'::TEXT))[1]::BIGINT);
 pgp := (regexp_matches(meta, '-----BEGIN.*SIGNATURE-----'))[1];
 
-RETURN (
+RETURN ROW(
     commit_hash,
     tree,
     parent,
@@ -41,7 +41,7 @@ RETURN (
     commit_time,
     message,
     pgp
-)::commits;
+)::commit;
 END
 $BODY$
 LANGUAGE 'plpgsql';

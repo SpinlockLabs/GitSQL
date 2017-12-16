@@ -1,5 +1,5 @@
 CREATE OR REPLACE FUNCTION git_lookup_commit(commit_hash TEXT)
-  RETURNS "commits"
+  RETURNS "commit"
 AS $BODY$
 DECLARE
   blob BYTEA;
