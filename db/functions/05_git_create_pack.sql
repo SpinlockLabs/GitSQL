@@ -8,21 +8,21 @@ import struct
 import zlib
 import plpy
 
-
 obj_types = {
     'commit': 1,
-    'blob': 2,
-    'tree': 3,
+    'tree': 2,
+    'blob': 3,
     'tag': 4
 }
 
 
-def load_object(hash):
-    rows = plpy.execute("SELECT type, content FROM headers WHERE hash = '%s'" % hash)
+def load_object(h):
+    rows = plpy.execute("SELECT type, content FROM headers WHERE hash = '%s'" % h)
     if len(rows) != 1:
-        raise Exception("Object %s not found." % hash)
+        raise Exception("Object %s not found." % h)
     row = rows[0]
-    return (row["type"], row["content"])
+    return row["type"], row["content"]
+
 
 def encode_pack_object(obj_type, data):
     out = bytearray()
@@ -33,8 +33,10 @@ def encode_pack_object(obj_type, data):
         out.append(byte | 0x80)
         byte = size & 0x7f
         size >>= 7
+    out.append(byte)
     out.extend(zlib.compress(data))
     return out
+
 
 def create_pack(count, hashes):
     sha = hashlib.new('sha1')
@@ -50,6 +52,7 @@ def create_pack(count, hashes):
 
     sha1 = sha.digest()
     yield sha1
+
 
 return create_pack(len(xhashes), xhashes)
 $BODY$

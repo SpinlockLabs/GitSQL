@@ -11,8 +11,6 @@ from concurrent.futures import ThreadPoolExecutor
 import asyncio
 import base64
 
-executor = ThreadPoolExecutor(max_workers=10)
-
 
 class NoSuchRepository(Exception):
     def __init__(self, repo):
@@ -25,6 +23,12 @@ if len(argv) < 2:
 
 cfg = ConfigParser()
 cfg.read(argv[1])
+
+executor = ThreadPoolExecutor(max_workers=cfg.getint(
+    'workers',
+    'threads',
+    fallback=10
+))
 
 memcached = None  # type: pylibmc.Client
 
@@ -70,7 +74,15 @@ def grab_connection(repo_name):
     db_name = map_repo_to_db(repo_name)
     if db_name not in pools:
         conn_info = db_conn_info + (" dbname='{0}'".format(db_name))
-        pools[db_name] = SimpleConnectionPool(1, 10, conn_info)
+        pools[db_name] = SimpleConnectionPool(
+            1,
+            cfg.getint(
+                'workers',
+                'sql',
+                fallback=10
+            ),
+            conn_info
+        )
     pool = pools[db_name]
     return pool, pool.getconn()
 
@@ -97,28 +109,39 @@ def fetch_object(repo_name, object_hash):
 
         return binary
 
-def fetch_shallow_pack(repo_name, commit_hash, resp):
+
+async def fetch_shallow_pack(repo_name, commit_hash, request, resp):
     resp.enable_chunked_encoding()
 
-    binary = None
     cursor = None
     pool = None
     conn = None
+    binary = None
     try:
         pool, conn = grab_connection(repo_name)
         cursor = conn.cursor()
-        q = cursor.mogrify("with objects AS (SELECT hash FROM git_shallow_crawl(%s)) SELECT part FROM git_create_pack((SELECT array_agg(hash) FROM objects))", (commit_hash,))
+        q = cursor.mogrify(
+            "WITH objects AS (SELECT hash FROM git_shallow_crawl(%s))" +
+            " SELECT part FROM git_create_pack((SELECT array_agg(hash) FROM objects))",
+            (commit_hash,))
         cursor.execute(q)
         cursor.itersize = 10
         for row in cursor:
+            if binary is None:
+                await resp.prepare(request)
             binary = row[0]
-            resp.write(bytes(binary.tolist()))
+            resp.write(binary.tobytes())
         resp.write_eof()
-    except Exception as e:
-        print(e)
+    except Exception:
+        if binary is not None:
+            await resp.write_eof()
+        else:
+            await resp.prepare(status=417)
+            await resp.write_eof()
     finally:
         cursor.close()
         put_connection(pool, conn)
+
 
 async def handle_object_route(request):
     prefix = request.match_info['hash_prefix']
@@ -153,33 +176,32 @@ async def handle_object_route(request):
 
     if binary is None:
         print("[WARN] Tried to fetch object %s, but it does not exist." % object_hash)
-        return Response(text='Object not found.', status=404)
+        return web.Response(text='Object not found.', status=404)
 
-    if type(binary) is bytearray:
+    if type(binary) is bytearray or type(binary) is memoryview:
         binary = binary.tobytes()
-
-    if type(binary) is memoryview:
-        binary = bytes(binary.tolist())
 
     global object_count
     object_count += 1
-    return request.Response(body=compress(binary))
+    return web.Response(body=compress(binary))
 
 
 async def handle_dlpack_route(request):
     resp = web.StreamResponse(status=200)
-    await resp.prepare(request)
-    await asyncio.get_event_loop().run_in_executor(
+    f = await asyncio.get_event_loop().run_in_executor(
         executor,
         fetch_shallow_pack,
         request.match_info['repo'],
         request.match_info['commit'],
+        request,
         resp
     )
+    await f
     return resp
 
+
 def handle_info_route(request):
-    return web.Response('Not found.', status=404)
+    return web.Response(text='Not found.', status=404)
 
 
 def handle_refs_route(request):
@@ -242,4 +264,8 @@ def object_count_info():
 
 asyncio.get_event_loop().call_later(1, object_count_info)
 
-web.run_app(app)
+web.run_app(
+    app,
+    host=cfg.get('bind', 'host', fallback='0.0.0.0'),
+    port=cfg.getint('bind', 'port', fallback=8080)
+)
