@@ -4,12 +4,15 @@ from sys import stderr, exit, argv
 from zlib import compress
 
 from aiohttp import web
+
 from psycopg2cffi.pool import SimpleConnectionPool
 
 from concurrent.futures import ThreadPoolExecutor
 
 import asyncio
 import base64
+import pathlib
+import json
 
 
 class NoSuchRepository(Exception):
@@ -143,6 +146,62 @@ async def fetch_shallow_pack(repo_name, commit_hash, request, resp):
         put_connection(pool, conn)
 
 
+def fetch_commit_info(repo_name, commit_hash):
+    pool = None
+    conn = None
+    cursor = None
+
+    out = None
+    try:
+        pool, conn = grab_connection(repo_name)
+        cursor = conn.cursor()
+        q = cursor.mogrify("SELECT * FROM git_lookup_commit(%s)", (commit_hash,))
+        cursor.execute(q)
+        for row in cursor:
+            out = row
+    finally:
+        cursor.close()
+        put_connection(pool, conn)
+    return out
+
+
+def fetch_tree_info(repo_name, tree_hash):
+    pool = None
+    conn = None
+    cursor = None
+
+    out = None
+    try:
+        pool, conn = grab_connection(repo_name)
+        cursor = conn.cursor()
+        q = cursor.mogrify("SELECT * FROM git_lookup_tree(%s)", (tree_hash,))
+        cursor.execute(q)
+        out = cursor.fetchall()
+    finally:
+        cursor.close()
+        put_connection(pool, conn)
+    return out
+
+
+def fetch_blob(repo_name, blob_hash):
+    pool = None
+    conn = None
+    cursor = None
+
+    out = None
+    try:
+        pool, conn = grab_connection(repo_name)
+        cursor = conn.cursor()
+        q = cursor.mogrify("SELECT content FROM contents WHERE hash = %s", (blob_hash,))
+        cursor.execute(q)
+        for item in cursor:
+            out = item[0].tobytes()
+    finally:
+        cursor.close()
+        put_connection(pool, conn)
+    return out
+
+
 async def handle_object_route(request):
     prefix = request.match_info['hash_prefix']
     suffix = request.match_info['hash_suffix']
@@ -200,6 +259,76 @@ async def handle_dlpack_route(request):
     return resp
 
 
+async def handle_commit_info_route(request):
+    info = await asyncio.get_event_loop().run_in_executor(
+        executor,
+        fetch_commit_info,
+        request.match_info['repo'],
+        request.match_info['commit']
+    )
+
+    if info is None:
+        return web.Response(status=404, text=json.dumps({
+            "error": "not found"
+        }))
+
+    out = {
+        'hash': info[0],
+        'tree': info[1],
+        'parent': info[2],
+        'author': info[3],
+        'committer': info[4],
+        'author_time': str(info[5]),
+        'commit_time': str(info[6]),
+        'message': info[7],
+        'pgp': info[8]
+    }
+
+    return web.Response(text=json.dumps(out, indent=2))
+
+
+async def handle_tree_info_route(request):
+    info = await asyncio.get_event_loop().run_in_executor(
+        executor,
+        fetch_tree_info,
+        request.match_info['repo'],
+        request.match_info['tree']
+    )
+
+    if info is None:
+        return web.Response(status=404, text=json.dumps({
+            "error": "not found"
+        }))
+
+    out = []
+
+    for item in info:
+        out.append({
+            'parent': item[0],
+            'mode': item[1],
+            'name': item[2],
+            'leaf': item[3]
+        })
+
+    return web.Response(text=json.dumps(out, indent=2))
+
+
+async def handle_blob_route(request):
+    data = await asyncio.get_event_loop().run_in_executor(
+        executor,
+        fetch_blob,
+        request.match_info['repo'],
+        request.match_info['blob']
+    )
+
+    if data is None:
+        return web.Response(status=404, text=json.dumps({
+            "error": "not found"
+        }))
+
+    return web.Response(body=data)
+
+
 def handle_info_route(request):
     return web.Response(text='Not found.', status=404)
 
@@ -244,6 +373,21 @@ app.router.add_get(
 app.router.add_get(
     '/{repo}/info/refs',
     handle_refs_route
+)
+
+app.router.add_get(
+    '/{repo}/commits/{commit}',
+    handle_commit_info_route
+)
+
+app.router.add_get(
+    '/{repo}/blobs/{blob}',
+    handle_blob_route
+)
+
+app.router.add_get(
+    '/{repo}/trees/{tree}',
+    handle_tree_info_route
 )
 
 
