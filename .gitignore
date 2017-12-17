@@ -15,3 +15,5 @@ out/
 # Other
 work/
 venv/
+
+tools/php/config.php
