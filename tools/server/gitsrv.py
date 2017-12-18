@@ -47,12 +47,12 @@ if cfg.getboolean('memcached', 'enabled', fallback=False):
         binary=True
     )
 
-if not cfg.has_section('connection'):
-    print("ERROR: Connection configuration section missing.", file=stderr)
+if not cfg.has_section('postgres'):
+    print("ERROR: PostgreSQL configuration section missing.", file=stderr)
     exit(1)
 
 db_conn_info = ''
-for item in cfg.items('connection'):
+for item in cfg.items('postgres'):
     db_conn_info += " {}='{}'".format(item[0], item[1])
 db_conn_info = db_conn_info.lstrip()
 

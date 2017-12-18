@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-from sys import stderr, exit, argv
+from sys import stderr, argv
 from configparser import ConfigParser
 from itertools import islice
 from hashlib import sha1
@@ -16,7 +16,7 @@ cfg = ConfigParser()
 cfg.read(argv[1])
 local_path = cfg.get('local', argv[2], fallback=None)
 
-if not cfg.has_section('connection'):
+if not cfg.has_section('postgres'):
     print("ERROR: Connection configuration section missing.", file=stderr)
     exit(1)
 
@@ -28,7 +28,7 @@ if not local_path:
     exit(1)
 
 db_conn_info = ''
-for item in cfg.items('connection'):
+for item in cfg.items('postgres'):
     db_conn_info += " {}='{}'".format(item[0], item[1])
 db_conn_info = db_conn_info.lstrip()
 
