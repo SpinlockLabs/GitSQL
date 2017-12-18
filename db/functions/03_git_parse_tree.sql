@@ -45,4 +45,4 @@ def parse():
 
 return parse()
 $BODY$
-LANGUAGE 'plpythonu';
+LANGUAGE 'plpython3u';

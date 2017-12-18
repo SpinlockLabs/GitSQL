@@ -32,4 +32,4 @@ def crawl_tree(h, typ, name, pname):
 
 return crawl_tree(root_tree_hash, 'tree', '', '')
 $BODY$
-LANGUAGE 'plpythonu';
+LANGUAGE 'plpython3u';

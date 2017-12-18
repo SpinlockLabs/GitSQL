@@ -9,12 +9,13 @@ from psycopg2cffi import connect, Binary
 import pygit2
 
 if len(argv) < 3:
-    print("Usage: gitsrv.py <config> <repository>", file=stderr)
+    print("Usage: git_sql_update.py <config> <repository>", file=stderr)
     exit(1)
 
 cfg = ConfigParser()
 cfg.read(argv[1])
 local_path = cfg.get('local', argv[2], fallback=None)
+db_name = cfg.get('databases', argv[2], fallback=argv[2])
 
 if not cfg.has_section('postgres'):
     print("ERROR: Connection configuration section missing.", file=stderr)
@@ -27,7 +28,7 @@ if not local_path:
     )
     exit(1)
 
-db_conn_info = ''
+db_conn_info = 'dbname=' + db_name
 for item in cfg.items('postgres'):
     db_conn_info += " {}='{}'".format(item[0], item[1])
 db_conn_info = db_conn_info.lstrip()

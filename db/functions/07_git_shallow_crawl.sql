@@ -37,4 +37,4 @@ def crawl_commit(cm_hash):
 
 return crawl_commit(commit_hash)
 $BODY$
-LANGUAGE 'plpythonu';
+LANGUAGE 'plpython3u';

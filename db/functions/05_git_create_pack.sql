@@ -56,4 +56,4 @@ def create_pack(count, hashes):
 
 return create_pack(len(xhashes), xhashes)
 $BODY$
-LANGUAGE 'plpythonu';
+LANGUAGE 'plpython3u';

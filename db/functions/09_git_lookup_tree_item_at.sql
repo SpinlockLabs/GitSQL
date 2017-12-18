@@ -44,4 +44,4 @@ if current_tree is None:
 
 return current_tree
 $BODY$
-LANGUAGE 'plpythonu';
+LANGUAGE 'plpython3u';

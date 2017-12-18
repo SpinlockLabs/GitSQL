@@ -13,7 +13,6 @@ psql postgres gitdb -f db/build/git.sql
 
 - Install dependencies:
 ```bash
-# Install Python dependencies.
 pip3 install -r tools/requirements.txt
 ```
 
@@ -24,17 +23,17 @@ pip3 install -r tools/requirements.txt
 host = localhost
 user = postgres
 
-[serve]
-your_repo.git = gitdb
+[databases]
+test.git = gitdb
 
 [local]
-gitdb = path/to/git/repo
+test.git = path/to/git/repo
 ```
 
 - Import the Git repository:
 
 ```bash
-python3 tools/updaters/git_sql_update.py path/to/gitsql.cfg gitdb
+python3 tools/updaters/git_sql_update.py path/to/gitsql.cfg test.git
 ```
 
 - Run the Git server:
@@ -46,5 +45,5 @@ python3 tools/server/gitsrv.py path/to/gitsql.cfg
 - Clone the repository:
 
 ```bash
-git clone http://localhost:8080/your_repo.git
+git clone http://localhost:8080/test.git
 ```

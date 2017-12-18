@@ -11,7 +11,6 @@ from concurrent.futures import ThreadPoolExecutor
 
 import asyncio
 import base64
-import pathlib
 import json
 
 
@@ -61,7 +60,7 @@ cache_hit_count = 0
 
 
 def map_repo_to_db(name: str):
-    mapped = cfg.get('serve', name, fallback=None)
+    mapped = cfg.get('databases', name, fallback=None)
     if mapped is None:
         raise NoSuchRepository(name)
     return mapped
