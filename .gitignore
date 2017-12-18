@@ -16,4 +16,4 @@ out/
 work/
 venv/
 
-tools/php/config.php
+tools/php/gitsql-php.ini

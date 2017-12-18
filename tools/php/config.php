@@ -1,5 +1,5 @@
 <?php
-$gitsql_config_path = getcwd() . "/../../work/gitsql-php.ini";
+$gitsql_config_path = "gitsql-php.ini";
 $config = parse_ini_file($gitsql_config_path, true);
 
 if (!$config) {

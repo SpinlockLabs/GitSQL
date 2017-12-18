@@ -37,8 +37,8 @@ function get_conn($repo_name) {
         die_not_exists('Repository not found.');
     }
 
-    $repos = $config['serve'];
-    $db_name = $repos[$repo_name];
+    $dbs = $config['databases'];
+    $db_name = $dbs[$repo_name];
 
     if ($db_name == null) {
         http_response_code(404);
@@ -87,7 +87,7 @@ function git_load_obj($db, $hash) {
 function git_load_refs($db) {
     $result = pg_query(
       $db,
-      "SELECT name, target FROM refs"
+      "SELECT name, git_resolve_ref(target) as target FROM refs"
     ) or die_server_error('Failed to query database for refs.');
 
     return $result;
