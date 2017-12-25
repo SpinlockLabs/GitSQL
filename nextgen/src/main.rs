@@ -3,6 +3,7 @@ extern crate postgres_array;
 extern crate git2;
 extern crate iron;
 extern crate rand;
+extern crate sha1;
 
 #[macro_use]
 extern crate clap;
@@ -38,7 +39,7 @@ impl<'a> RepositoryUpdater<'a> {
                 &self.handle,
                 self.hashes
             ).unwrap();
-            println!("Added {} objects.", self.counter);
+            println!("Loaded {} objects for comparison...", self.counter);
             self.hashes.clear();
         }
 
@@ -50,9 +51,30 @@ impl<'a> RepositoryUpdater<'a> {
         odb.foreach(|x: &Oid| {
             return self.callback(x);
         }).unwrap();
+
+        if !self.hashes.is_empty() {
+            self.client.add_hashes_to_object_list(
+                &self.handle,
+                self.hashes
+            ).unwrap();
+            println!("Loaded {} objects for comparison...", self.counter);
+            self.hashes.clear();
+        }
     }
 
-    fn update(&mut self) {
+    fn update(&mut self, repo: &Repository) {
+        let odb = repo.odb().unwrap();
+
+        self.client.diff_object_list(|x: String| {
+            println!("Insert {}", x);
+            let oid = Oid::from_str(&x).unwrap();
+            let obj = odb.read(oid).unwrap();
+            let kind = obj.kind();
+            let size = obj.len();
+            let data = obj.data();
+
+            self.client.insert_object(&kind, size, data).unwrap();
+        }).unwrap();
     }
 }
 
@@ -109,12 +131,7 @@ fn main() {
         };
 
         updater.process_objects(&repo);
-        updater.update();
-
-        client.diff_object_list(| x: String | {
-            println!("Missing object {}", x);
-        }).unwrap();
-
+        updater.update(&repo);
         client.end_object_list().unwrap();
     }
 }

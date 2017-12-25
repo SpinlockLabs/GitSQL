@@ -6,6 +6,7 @@ version = "0.0.1"
 postgres = "0.15.1"
 postgres_array = "0.9.0"
 rand = "0.3"
-git2 = "0.6.10"
+git2 = { git = "https://github.com/SpinlockLabs/git2-rs.git", branch = "odb-read" }
 iron = "0.6.*"
 clap = {version = "2.29", features = ["yaml"]}
+sha1 = "0.3.0"
