@@ -1,0 +1,16 @@
+name: "gitsql"
+version: "0.0.1"
+author: "Kenneth Endfinger <kaendfinger@gmail.com>"
+about: "Git on SQL"
+args:
+- sql-url:
+    short: s
+    long: sql-url
+    help: "SQL URL"
+    value_name: "SQL_URL"
+    takes_value: true
+subcommands:
+- list-refs:
+    about: "List Git References"
+- update:
+    about: "Update the SQL Repository"
