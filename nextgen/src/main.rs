@@ -66,6 +66,7 @@ fn main() {
         let mut updater = RepositoryUpdater::new(client).unwrap();
 
         updater.process_objects(&repo);
-        updater.update(&repo);
+        updater.update_objects(&repo);
+        updater.update_refs(&repo);
     }
 }

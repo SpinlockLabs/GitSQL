@@ -38,7 +38,7 @@ impl<'a> RepositoryUpdater<'a> {
         write!(&mut hash, "{}", oid).unwrap();
         self.hashes.push(hash);
 
-        if self.counter % 500 == 0 {
+        if self.counter % 2000 == 0 {
             self.client.add_hashes_to_object_list(
                 &self.handle,
                 &self.hashes
@@ -66,7 +66,7 @@ impl<'a> RepositoryUpdater<'a> {
         }
     }
 
-    pub fn update(&mut self, repo: &Repository) {
+    pub fn update_objects(&mut self, repo: &Repository) {
         let odb = repo.odb().unwrap();
 
         self.client.diff_object_list(|x: String| {
@@ -79,5 +79,30 @@ impl<'a> RepositoryUpdater<'a> {
 
             self.client.insert_object(&kind, size, data).unwrap();
         }).unwrap();
+    }
+
+    pub fn update_refs(&mut self, repo: &Repository) {
+        let refs = repo.references().unwrap();
+
+        refs.for_each(|r| {
+            let rf = r.unwrap();
+
+            let name = rf.name().unwrap().to_string();
+            let target : String;
+            if !rf.symbolic_target().is_none() {
+                target = rf.symbolic_target().unwrap().to_string();
+            } else {
+                target = rf.target().unwrap().to_string();
+            }
+
+            let did_update = self.client.set_ref(
+                &name,
+                &target
+            ).unwrap();
+
+            if did_update {
+                println!("{} updated to {}", name, target);
+            }
+        });
     }
 }

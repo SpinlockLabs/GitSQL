@@ -26,8 +26,7 @@ impl GitSqlClient {
     }
 
     pub fn read_raw_object(&self, hash: &String) -> Result<Vec<u8>> {
-        let conn = &self.conn;
-        let result = conn.query("SELECT content FROM objects WHERE hash = $1", &[hash]);
+        let result = self.conn.query("SELECT content FROM objects WHERE hash = $1", &[hash]);
 
         if result.is_err() {
             return Err(result.err().unwrap());
@@ -38,8 +37,7 @@ impl GitSqlClient {
     }
 
     pub fn read_object(&self, hash: &String) -> Result<(ObjectType, Vec<u8>)> {
-        let conn = &self.conn;
-        let result = conn.query("SELECT type, content FROM headers WHERE hash = $1", &[hash]);
+        let result = self.conn.query("SELECT type, content FROM headers WHERE hash = $1", &[hash]);
 
         if result.is_err() {
             return Err(result.err().unwrap());
@@ -55,8 +53,7 @@ impl GitSqlClient {
     }
 
     pub fn resolve_ref(&self, input: &String) -> Result<String> {
-        let conn = &self.conn;
-        let result = conn.query("SELECT git_resolve_ref($1)", &[input]);
+        let result = self.conn.query("SELECT git_resolve_ref($1)", &[input]);
 
         if result.is_err() {
             return Err(result.err().unwrap());
@@ -69,8 +66,7 @@ impl GitSqlClient {
 
     pub fn list_ref_names(&self) -> Result<Vec<String>> {
         let mut refs: Vec<String> = Vec::new();
-        let conn = &self.conn;
-        let result = conn.query("SELECT name FROM refs", &[]);
+        let result = self.conn.query("SELECT name FROM refs", &[]);
 
         if result.is_err() {
             return Err(result.err().unwrap());
@@ -86,8 +82,7 @@ impl GitSqlClient {
 
     pub fn list_refs(&self) -> Result<Vec<(String, String)>> {
         let mut refs: Vec<(String, String)> = Vec::new();
-        let conn = &self.conn;
-        let result = conn.query(
+        let result = self.conn.query(
             "SELECT name, git_resolve_ref(target) as target FROM refs",
             &[],
         );
@@ -153,8 +148,7 @@ impl GitSqlClient {
     where
         C: Fn(String),
     {
-        let conn = &self.conn;
-        let result = Cursor::build(conn)
+        let result = Cursor::build(&self.conn)
             .batch_size(500)
             .query(
                 "SELECT hash FROM objlist c WHERE NOT EXISTS \
@@ -183,8 +177,7 @@ impl GitSqlClient {
     }
 
     pub fn end_object_list(&self) -> Result<()> {
-        let conn = &self.conn;
-        let result = conn.execute("DROP TABLE objlist", &[]);
+        let result = self.conn.execute("DROP TABLE objlist", &[]);
 
         if result.is_err() {
             return Err(result.err().unwrap());
@@ -217,5 +210,19 @@ impl GitSqlClient {
         }
 
         return Ok(());
+    }
+
+    pub fn set_ref(&self, name: &String, target: &String) -> Result<bool> {
+        let result = self.conn.execute(
+            "INSERT INTO refs (name, target) VALUES ($1, $2) \
+             ON CONFLICT (name) DO UPDATE SET target = $3",
+            &[name, target, target]
+        );
+
+        if result.is_err() {
+            return Err(result.err().unwrap());
+        }
+
+        return Ok(result.unwrap() > 0);
     }
 }
