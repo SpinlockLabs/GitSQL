@@ -11,7 +11,7 @@ use git2::ObjectType;
 use sha1;
 
 pub struct GitSqlClient {
-    conn: Connection,
+    conn: Connection
 }
 
 #[allow(dead_code)]
@@ -62,6 +62,10 @@ impl GitSqlClient {
         let resolved: Option<String> = result.unwrap().get(0).get(0);
 
         return Ok(resolved.unwrap());
+    }
+
+    pub fn run_sql(&self, input: &String) -> Result<()> {
+        self.conn.batch_execute(input)
     }
 
     pub fn list_ref_names(&self) -> Result<Vec<String>> {
@@ -201,7 +205,7 @@ impl GitSqlClient {
         sha.update(encoded.as_slice());
         let hash = &sha.digest().to_string();
         let result = self.conn.execute(
-            "INSERT INTO objects (hash, content) VALUES ($1, $2)",
+            "INSERT INTO objects (hash, content) VALUES ($1, $2) ON CONFLICT DO NOTHING",
             &[hash, &GitSqlClient::encode_object(kind, size, data)],
         );
 

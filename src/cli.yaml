@@ -12,7 +12,16 @@ args:
 subcommands:
 - list-refs:
     about: "List Git References"
+- init:
+    about: "Initialize the Git SQL Schema"
 - update:
     about: "Update the SQL Repository"
 - serve:
     about: "Serve Git Repositories"
+    args:
+    - bind:
+        short: b
+        long: bind
+        help: "HTTP Bind"
+        value_name: "ADDRESS_AND_PORT"
+        takes_value: true

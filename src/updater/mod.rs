@@ -2,7 +2,7 @@ use std::fmt::{Write};
 use std::result::{Result};
 use postgres::error::{Error};
 
-use git2::{Repository, Oid};
+use git2::{Repository, Reference, Oid};
 use client::{GitSqlClient};
 use postgres::stmt::{Statement};
 
@@ -81,28 +81,36 @@ impl<'a> RepositoryUpdater<'a> {
         }).unwrap();
     }
 
+    fn process_ref(&mut self, rf: &Reference, name: String) {
+        let target : String;
+        
+        if !rf.symbolic_target().is_none() {
+            target = rf.symbolic_target().unwrap().to_string();
+        } else {
+            target = rf.target().unwrap().to_string();
+        }
+
+        let did_update = self.client.set_ref(
+            &name,
+            &target
+        ).unwrap();
+
+        if did_update {
+            println!("{} updated to {}", name, target);
+        }
+    }
+
     pub fn update_refs(&mut self, repo: &Repository) {
         let refs = repo.references().unwrap();
 
         refs.for_each(|r| {
             let rf = r.unwrap();
-
             let name = rf.name().unwrap().to_string();
-            let target : String;
-            if !rf.symbolic_target().is_none() {
-                target = rf.symbolic_target().unwrap().to_string();
-            } else {
-                target = rf.target().unwrap().to_string();
-            }
-
-            let did_update = self.client.set_ref(
-                &name,
-                &target
-            ).unwrap();
-
-            if did_update {
-                println!("{} updated to {}", name, target);
-            }
+            self.process_ref(&rf, name);
         });
+
+        if let Ok(rf) = repo.head() {
+            self.process_ref(&rf, "HEAD".into());
+        }
     }
 }
