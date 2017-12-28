@@ -14,3 +14,5 @@ subcommands:
     about: "List Git References"
 - update:
     about: "Update the SQL Repository"
+- serve:
+    about: "Serve Git Repositories"
