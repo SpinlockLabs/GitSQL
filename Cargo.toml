@@ -18,3 +18,7 @@ lazy_static = "1.0"
 
 [build-dependencies]
 glob = "0.2.11"
+
+[[bin]]
+name = "gitsql"
+path = "src/main.rs"

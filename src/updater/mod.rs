@@ -1,9 +1,7 @@
 use std::fmt::{Write};
-use std::result::{Result};
-use postgres::error::{Error};
 
 use git2::{Repository, Reference, Oid};
-use client::{GitSqlClient};
+use client::{GitSqlClient, Result};
 use postgres::stmt::{Statement};
 
 pub struct RepositoryUpdater<'a> {
@@ -14,7 +12,7 @@ pub struct RepositoryUpdater<'a> {
 }
 
 impl<'a> RepositoryUpdater<'a> {
-    pub fn new(client: &GitSqlClient) -> Result<RepositoryUpdater, Error> {
+    pub fn new(client: &GitSqlClient) -> Result<RepositoryUpdater> {
         let handle = client.start_object_list();
 
         if handle.is_err() {
@@ -77,7 +75,7 @@ impl<'a> RepositoryUpdater<'a> {
             let size = obj.len();
             let data = obj.data();
 
-            self.client.insert_object(&kind, size, data).unwrap();
+            self.client.insert_object_verify(&kind, size, data, &x).unwrap();
         }).unwrap();
     }
 

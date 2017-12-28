@@ -1,6 +1,7 @@
 use iron::prelude::*;
 use iron::{BeforeMiddleware, typemap};
 use iron::status;
+use iron::mime::Mime;
 
 use router::Router;
 use client::GitSqlClient;
@@ -46,12 +47,13 @@ impl GitSqlServer {
         let client = maybe_client.unwrap();
         let result = client.read_raw_object(hash);
         if result.is_err() {
-            return Err(IronError::new(result.err().unwrap(), status::BadRequest));
+            return Err(IronError::new(StringError(result.err().unwrap()), status::BadRequest));
         }
         let data = result.unwrap();
         let mut e = ZlibEncoder::new(Vec::new(), Compression::default());
-        e.write(&data).unwrap();
-        Ok(Response::with((status::Ok, e.finish().unwrap())))
+        e.write_all(&data).unwrap();
+        let mime = "application/octet-stream".parse::<Mime>().unwrap();
+        Ok(Response::with((mime, status::Ok, e.finish().unwrap())))
     }
 
     pub fn list_refs(&self, repo: &String) -> IronResult<Response> {
@@ -62,7 +64,7 @@ impl GitSqlServer {
         let client = maybe_client.unwrap();
         let result = client.list_refs();
         if result.is_err() {
-            return Err(IronError::new(result.err().unwrap(), status::BadRequest));
+            return Err(IronError::new(StringError(result.err().unwrap()), status::BadRequest));
         }
         
         let refs = result.unwrap();
