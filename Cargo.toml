@@ -1,0 +1,24 @@
+[package]
+name = "gitsql"
+version = "0.0.1"
+authors = ["Kenneth Endfinger <kaendfinger@gmail.com>"]
+build = "build.rs"
+
+[dependencies]
+postgres = "0.15.1"
+postgres_array = "0.9.0"
+rand = "0.3"
+git2 = { git = "https://github.com/alexcrichton/git2-rs.git", branch = "master" }
+iron = "0.6.*"
+clap = {version = "2.29", features = ["yaml"]}
+sha1 = "0.3.0"
+router = "*"
+flate2 = "1.0"
+lazy_static = "1.0"
+
+[build-dependencies]
+glob = "0.2.11"
+
+[[bin]]
+name = "gitsql"
+path = "src/main.rs"

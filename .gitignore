@@ -17,3 +17,7 @@ work/
 venv/
 
 tools/php/gitsql-php.ini
+
+# Rust
+target/
+Cargo.lock

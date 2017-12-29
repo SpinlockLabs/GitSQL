@@ -2,6 +2,13 @@
 
 This is an experimental implementation of Git storage and operations on top of PostgreSQL.
 
+## Why
+
+Git is a very flexible platform for version control and content-addressable storage.
+GitSQL aims to take advantage of the server-side abilities of PostgreSQL to implement
+Git operations using PostgreSQL features. This is still experimental, and is not
+recommended for production use.
+
 ## Usage
 
 - Build and import the database:
