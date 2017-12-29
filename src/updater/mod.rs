@@ -1,16 +1,10 @@
+use core::{SimpleError, Result};
+use client::{GitSqlClient};
+
 use std::fmt::{Write};
-use std::convert::{self};
 
 use git2::{self, Repository, Reference, Oid};
 use postgres::stmt::{Statement};
-
-use client::{GitSqlClient, Result, StringError};
-
-impl convert::Into<StringError> for git2::Error {
-    fn into(self) -> StringError {
-        StringError::of(self.message().into())
-    }
-}
 
 pub struct RepositoryUpdater<'a> {
     client: &'a GitSqlClient,
@@ -51,10 +45,10 @@ impl<'a> RepositoryUpdater<'a> {
     }
 
     pub fn process_objects(&mut self, repo: &Repository) -> Result<()> {
-        let odb = repo.odb().map_err(|x| x.into())?;
+        let odb = repo.odb().map_err(|x| SimpleError::from(x))?;
         odb.foreach(|x: &Oid| {
             return self.callback(x);
-        }).map_err(|x: git2::Error| StringError::of(x.message().into()))?;
+        }).map_err(|x: git2::Error| SimpleError::new(x.message()))?;
 
         if !self.hashes.is_empty() {
             self.client.add_hashes_to_object_list(
@@ -69,7 +63,7 @@ impl<'a> RepositoryUpdater<'a> {
     }
 
     pub fn update_objects(&mut self, repo: &Repository) -> Result<()> {
-        let odb = repo.odb().map_err(|x| x.into())?;
+        let odb = repo.odb().map_err(|x| SimpleError::from(x))?;
 
         self.client.diff_object_list(|x: String| {
             println!("Insert {}", x);
@@ -92,6 +86,16 @@ impl<'a> RepositoryUpdater<'a> {
             target = rf.target().unwrap().to_string();
         }
 
+        let peeled = rf.target_peel();
+        if peeled.is_some() {
+            let mut peeled_name = name.clone();
+            peeled_name.push_str("^{}");
+            self.client.set_ref(
+                &peeled_name,
+                &peeled.unwrap().to_string()
+            )?;
+        }
+
         let did_update = self.client.set_ref(
             &name,
             &target
@@ -105,7 +109,7 @@ impl<'a> RepositoryUpdater<'a> {
     }
 
     pub fn update_refs(&mut self, repo: &Repository) -> Result<()> {
-        let refs = repo.references().map_err(|x| x.into())?;
+        let refs = repo.references().map_err(|x| SimpleError::from(x))?;
 
         for r in refs {
             let rf = r.unwrap();

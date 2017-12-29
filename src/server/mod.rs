@@ -1,12 +1,14 @@
+use core::{SimpleError};
+use client::{GitSqlClient};
+
 use iron::prelude::*;
 use iron::{BeforeMiddleware, typemap};
 use iron::status;
 use iron::mime::Mime;
 
 use router::Router;
-use client::{GitSqlClient, StringError};
 
-use std::io::Write;
+use std::io::{Write};
 
 use flate2::Compression;
 use flate2::write::ZlibEncoder;
@@ -27,7 +29,7 @@ impl GitSqlServer {
     pub fn download_object(&self, repo: &String, hash: &String) -> IronResult<Response> {
         let maybe_client = (self.loader)(repo.to_string());
         if maybe_client.is_none() {
-            return Err(IronError::new(StringError::of("Unknown Repository.".to_string()), status::BadRequest));
+            return Err(IronError::new(SimpleError::new("Unknown Repository."), status::BadRequest));
         }
         let client = maybe_client.unwrap();
         let result = client.read_raw_object(hash);
@@ -44,7 +46,7 @@ impl GitSqlServer {
     pub fn list_refs(&self, repo: &String) -> IronResult<Response> {
         let maybe_client = (self.loader)(repo.to_string());
         if maybe_client.is_none() {
-            return Err(IronError::new(StringError::of("Unknown Repository.".to_string()), status::BadRequest));
+            return Err(IronError::new(SimpleError::new("Unknown Repository."), status::BadRequest));
         }
         let client = maybe_client.unwrap();
         let result = client.list_refs();
@@ -83,7 +85,7 @@ impl GitSqlServer {
         let server = req.extensions.get::<GitSqlServer>().unwrap();
         server.list_refs(&(*repo).into())
     }
-
+    
     fn add_to_router(&self, router: &mut Router) {
         router.get("/:repo/info/refs", GitSqlServer::handle_info_refs, "info-refs");
         router.get("/:repo/objects/:ha/:hb", GitSqlServer::handle_dl_object, "object-download");

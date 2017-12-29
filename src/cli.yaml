@@ -3,11 +3,17 @@ version: "0.0.1"
 author: "Kenneth Endfinger <kaendfinger@gmail.com>"
 about: "Git on SQL"
 args:
-- sql-url:
-    short: s
-    long: sql-url
-    help: "SQL URL"
-    value_name: "SQL_URL"
+- config:
+    short: c
+    long: config
+    help: "Configuration File"
+    value_name: "CFG_PATH"
+    takes_value: true
+- repository:
+    short: r
+    long: repository
+    help: "Repository Name"
+    value_name: "REPO_NAME"
     takes_value: true
 subcommands:
 - list-refs:
@@ -18,10 +24,3 @@ subcommands:
     about: "Update the SQL Repository"
 - serve:
     about: "Serve Git Repositories"
-    args:
-    - bind:
-        short: b
-        long: bind
-        help: "HTTP Bind"
-        value_name: "ADDRESS_AND_PORT"
-        takes_value: true

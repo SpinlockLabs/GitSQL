@@ -1,13 +1,11 @@
-use postgres::{self, Connection, TlsMode};
+use core::{SimpleError, Result};
+
+use postgres::{Connection, TlsMode};
 
 use postgres::stmt::Statement;
 use postgres_array::Array;
 
-use std::convert;
-use std::fmt::{self, Write};
-
-use std::error::Error;
-use std::result;
+use std::fmt::{Write};
 
 use pgutil::Cursor;
 
@@ -19,45 +17,12 @@ pub struct GitSqlClient {
     conn: Connection
 }
 
-#[derive(Debug)]
-pub struct StringError(String);
-
-impl StringError {
-    pub fn of(msg: String) -> StringError {
-        StringError(msg)
-    }
-}
-
-impl Error for StringError {
-    fn description(&self) -> &str { &*self.0 }
-}
-
-impl fmt::Display for StringError {
-    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        fmt::Debug::fmt(self, f)
-    }
-}
-
-impl<'c> convert::Into<StringError> for &'c Error {
-    fn into(self) -> StringError {
-        StringError(self.description().into())
-    }
-}
-
-impl convert::Into<StringError> for postgres::Error {
-    fn into(self) -> StringError {
-        StringError(self.description().into())
-    }
-}
-
-pub type Result<T> = result::Result<T, StringError>;
-
 #[allow(dead_code)]
 impl GitSqlClient {
     pub fn new(url: String) -> Result<GitSqlClient> {
         let result = Connection::connect(url, TlsMode::None);
         if result.is_err() {
-            return Err(result.err().unwrap().into());
+            return Err(SimpleError::from(result.err().unwrap()));
         }
         let conn = result.unwrap();
         return Ok(GitSqlClient { conn });
@@ -67,12 +32,12 @@ impl GitSqlClient {
         let result = self.conn.query("SELECT content FROM objects WHERE hash = $1", &[hash]);
 
         if result.is_err() {
-            return Err(result.err().unwrap().into());
+            return Err(SimpleError::from(result.err().unwrap()));
         }
 
         let rows = result.unwrap();
         if rows.len() == 0 {
-            return Err(StringError("Object not found.".into()));
+            return Err(SimpleError::new("Object not found."));
         }
 
         let data: Option<Vec<u8>> = rows.get(0).get(0);
@@ -83,12 +48,12 @@ impl GitSqlClient {
         let result = self.conn.query("SELECT type, content FROM headers WHERE hash = $1", &[hash]);
 
         if result.is_err() {
-            return Err(result.err().unwrap().into());
+            return Err(SimpleError::from(result.err().unwrap()));
         }
 
         let rows = result.unwrap();
         if rows.len() == 0 {
-            return Err(StringError("Unknown Object.".into()));
+            return Err(SimpleError::new("Unknown Object."));
         }
 
         let row = rows.get(0);
@@ -103,7 +68,7 @@ impl GitSqlClient {
         let result = self.conn.query("SELECT git_resolve_ref($1)", &[input]);
 
         if result.is_err() {
-            return Err(result.err().unwrap().into());
+            return Err(SimpleError::from(result.err().unwrap()));
         }
 
         let resolved: Option<String> = result.unwrap().get(0).get(0);
@@ -112,7 +77,7 @@ impl GitSqlClient {
     }
 
     pub fn run_sql(&self, input: &String) -> Result<()> {
-        self.conn.batch_execute(input).map_err(|x| x.into())
+        self.conn.batch_execute(input).map_err(|x| SimpleError::from(x))
     }
 
     pub fn list_ref_names(&self) -> Result<Vec<String>> {
@@ -120,7 +85,7 @@ impl GitSqlClient {
         let result = self.conn.query("SELECT name FROM refs", &[]);
 
         if result.is_err() {
-            return Err(result.err().unwrap().into());
+            return Err(SimpleError::from(result.err().unwrap()));
         }
 
         for row in &result.unwrap() {
@@ -139,7 +104,7 @@ impl GitSqlClient {
         );
 
         if result.is_err() {
-            return Err(result.err().unwrap().into());
+            return Err(SimpleError::from(result.err().unwrap()));
         }
 
         for row in &result.unwrap() {
@@ -156,19 +121,19 @@ impl GitSqlClient {
         let mut result = conn.execute("CREATE TEMPORARY TABLE objlist(hash TEXT)", &[]);
 
         if result.is_err() {
-            return Err(result.err().unwrap().into());
+            return Err(SimpleError::from(result.err().unwrap()));
         }
 
         result = conn.execute("TRUNCATE objlist", &[]);
 
         if result.is_err() {
-            return Err(result.err().unwrap().into());
+            return Err(SimpleError::from(result.err().unwrap()));
         }
 
         let stmt = conn.prepare("INSERT INTO objlist(hash) SELECT * FROM unnest($1::TEXT[])");
 
         if stmt.is_err() {
-            return Err(stmt.err().unwrap().into());
+            return Err(SimpleError::from(stmt.err().unwrap()));
         }
 
         Ok((stmt.unwrap()))
@@ -187,7 +152,7 @@ impl GitSqlClient {
         let result = stmt.execute(&[hash_array]);
 
         if result.is_err() {
-            return Err(result.err().unwrap().into());
+            return Err(SimpleError::from(result.err().unwrap()));
         }
 
         result.unwrap();
@@ -208,14 +173,14 @@ impl GitSqlClient {
             .finalize();
 
         if result.is_err() {
-            return Err(result.err().unwrap().into());
+            return Err(SimpleError::from(result.err().unwrap()));
         }
 
         let mut cursor = result.unwrap();
 
         for result in &mut cursor {
             if result.is_err() {
-                return Err(result.err().unwrap().into());
+                return Err(SimpleError::from(result.err().unwrap()));
             }
 
             let rows = result.unwrap();
@@ -231,7 +196,7 @@ impl GitSqlClient {
         let result = self.conn.execute("DROP TABLE objlist", &[]);
 
         if result.is_err() {
-            return Err(result.err().unwrap().into());
+            return Err(SimpleError::from(result.err().unwrap()));
         }
 
         return Ok(());
@@ -257,7 +222,7 @@ impl GitSqlClient {
         );
 
         if result.is_err() {
-            return Err(result.err().unwrap().into());
+            return Err(SimpleError::from(result.err().unwrap()));
         }
 
         return Ok(());
@@ -272,7 +237,7 @@ impl GitSqlClient {
         if hash != expected {
             let mut msg = String::new();
             write!(&mut msg, "Expected hash to be {}, but encoded the object into a hash of {}", expected, hash).unwrap();
-            return Err(StringError(msg));
+            return Err(SimpleError::new(msg));
         }
 
         let result = self.conn.execute(
@@ -281,7 +246,7 @@ impl GitSqlClient {
         );
 
         if result.is_err() {
-            return Err(result.err().unwrap().into());
+            return Err(SimpleError::from(result.err().unwrap()));
         }
 
         return Ok(());
@@ -295,7 +260,7 @@ impl GitSqlClient {
         );
 
         if result.is_err() {
-            return Err(result.err().unwrap().into());
+            return Err(SimpleError::from(result.err().unwrap()));
         }
 
         return Ok(result.unwrap() > 0);
