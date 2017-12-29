@@ -45,7 +45,32 @@ impl GitSqlClient {
     }
 
     pub fn read_object(&self, hash: &String) -> Result<(ObjectType, Vec<u8>)> {
-        let result = self.conn.query("SELECT type, content FROM headers WHERE hash = $1", &[hash]);
+        let result = self.conn.query("SELECT (type)::TEXT, content FROM headers WHERE hash = $1", &[hash]);
+
+        if result.is_err() {
+            return Err(SimpleError::from(result.err().unwrap()));
+        }
+
+        let rows = result.unwrap();
+        if rows.len() == 0 {
+            return Err(SimpleError::new("Unknown Object."));
+        }
+
+        let row = rows.get(0);
+        let objtype: Option<String> = row.get(0);
+        let bytes: Option<Vec<u8>> = row.get(1);
+        let rtype = ObjectType::from_str(&objtype.unwrap());
+
+        return Ok((rtype.unwrap(), bytes.unwrap()));
+    }
+
+    pub fn read_file_at(&self, path: &String, at: &String) -> Result<(ObjectType, Vec<u8>)> {
+        let result = self.conn.query(
+            "WITH real as (SELECT * FROM git_lookup_tree_item_at($1, git_resolve_ref($2)) AS hash) \
+             SELECT type::TEXT, content FROM real JOIN headers head ON (head.hash = real.hash)", &[
+            path,
+            at
+        ]);
 
         if result.is_err() {
             return Err(SimpleError::from(result.err().unwrap()));
