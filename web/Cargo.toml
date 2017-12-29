@@ -1,7 +1,0 @@
-[package]
-name = "gitsql-web"
-version = "0.0.1"
-authors = ["Kenneth Endfinger <kaendfinger@gmail.com>"]
-
-[dependencies]
-stdweb = {git = "https://github.com/koute/stdweb.git"}

@@ -90,9 +90,9 @@ fn main() {
         let repo = Repository::open(git_path).unwrap();
         let mut updater = RepositoryUpdater::new(&client).unwrap();
 
-        updater.process_objects(&repo);
-        updater.update_objects(&repo);
-        updater.update_refs(&repo);
+        updater.process_objects(&repo).expect("Failed to load object list.");
+        updater.update_objects(&repo).expect("Failed to update objects.");
+        updater.update_refs(&repo).expect("Failed to update references");
     } else if let Some(_) = args.subcommand_matches("init") {
         let sql_file = include_str!("../db/build/git.rs.sql");
         client.run_sql(&sql_file.to_string()).unwrap();

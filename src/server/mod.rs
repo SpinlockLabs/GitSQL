@@ -4,30 +4,15 @@ use iron::status;
 use iron::mime::Mime;
 
 use router::Router;
-use client::GitSqlClient;
+use client::{GitSqlClient, StringError};
 
-use std::error::{Error};
-use std::fmt::{self, Debug};
 use std::io::Write;
 
 use flate2::Compression;
 use flate2::write::ZlibEncoder;
 
-#[derive(Debug)]
-struct StringError(String);
-
 impl typemap::Key for GitSqlServer {
     type Value = GitSqlServer;
-}
-
-impl Error for StringError {
-    fn description(&self) -> &str { &*self.0 }
-}
-
-impl fmt::Display for StringError {
-    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        Debug::fmt(self, f)
-    }
 }
 
 pub struct GitSqlServer {
@@ -42,12 +27,12 @@ impl GitSqlServer {
     pub fn download_object(&self, repo: &String, hash: &String) -> IronResult<Response> {
         let maybe_client = (self.loader)(repo.to_string());
         if maybe_client.is_none() {
-            return Err(IronError::new(StringError("Unknown Repository.".to_string()), status::BadRequest));
+            return Err(IronError::new(StringError::of("Unknown Repository.".to_string()), status::BadRequest));
         }
         let client = maybe_client.unwrap();
         let result = client.read_raw_object(hash);
         if result.is_err() {
-            return Err(IronError::new(StringError(result.err().unwrap()), status::BadRequest));
+            return Err(IronError::new(result.err().unwrap(), status::BadRequest));
         }
         let data = result.unwrap();
         let mut e = ZlibEncoder::new(Vec::new(), Compression::default());
@@ -59,12 +44,12 @@ impl GitSqlServer {
     pub fn list_refs(&self, repo: &String) -> IronResult<Response> {
         let maybe_client = (self.loader)(repo.to_string());
         if maybe_client.is_none() {
-            return Err(IronError::new(StringError("Unknown Repository.".to_string()), status::BadRequest));
+            return Err(IronError::new(StringError::of("Unknown Repository.".to_string()), status::BadRequest));
         }
         let client = maybe_client.unwrap();
         let result = client.list_refs();
         if result.is_err() {
-            return Err(IronError::new(StringError(result.err().unwrap()), status::BadRequest));
+            return Err(IronError::new(result.err().unwrap(), status::BadRequest));
         }
         
         let refs = result.unwrap();
