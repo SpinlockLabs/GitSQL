@@ -94,7 +94,7 @@ fn main() {
         updater.update_objects(&repo).expect("Failed to update objects.");
         updater.update_refs(&repo).expect("Failed to update references");
     } else if let Some(_) = args.subcommand_matches("init") {
-        let sql_file = include_str!("../db/build/git.rs.sql");
+        let sql_file = include_str!(concat!(env!("OUT_DIR"), "/git.rs.sql"));
         client.run_sql(&sql_file.to_string()).unwrap();
         println!("Completed.");
     } else if let Some(sub) = args.subcommand_matches("serve") {

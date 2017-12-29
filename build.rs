@@ -5,8 +5,6 @@ use std::fs;
 use std::path::Path;
 use std::ffi::OsStr;
 
-use std::ops::Add;
-
 use std::io::prelude::*;
 
 use self::glob::glob;
@@ -30,11 +28,12 @@ fn scan_and_append(out: &mut String, dir: &Path, gb: &str) {
 
 fn main() {
     let src_dir_raw = env::var("CARGO_MANIFEST_DIR").unwrap();
+    let out_dir_raw = env::var("OUT_DIR").unwrap();
     let src_dir = Path::new(OsStr::new(&src_dir_raw));
-    fs::create_dir(String::new().add(src_dir_raw.as_str()).add("/db/build")).unwrap_or(());
-    let build_dir = src_dir.join("db/build/");
-    let db_dir = build_dir.parent().unwrap();
-    let sql_file = build_dir.join("git.rs.sql");
+    let out_dir = Path::new(OsStr::new(&out_dir_raw));
+
+    let db_dir = src_dir.join("db/");
+    let sql_file = out_dir.join("git.rs.sql");
 
     let mut file = fs::File::create(sql_file).unwrap();
     let mut out = String::new();
