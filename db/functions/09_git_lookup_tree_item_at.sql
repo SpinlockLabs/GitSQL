@@ -1,3 +1,4 @@
+-- <PYTHON ONLY> --
 CREATE OR REPLACE FUNCTION git_lookup_tree_item_at(path TEXT, commit_hash TEXT)
     RETURNS TEXT
 AS $BODY$
@@ -45,3 +46,4 @@ if current_tree is None:
 return current_tree
 $BODY$
 LANGUAGE 'plpython3u';
+-- </PYTHON ONLY> --

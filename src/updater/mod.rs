@@ -4,6 +4,7 @@ use client::{GitSqlClient};
 use std::fmt::{Write};
 
 use git2::{self, Repository, Reference, Oid};
+
 use postgres::stmt::{Statement};
 
 pub struct RepositoryUpdater<'a> {
@@ -65,15 +66,15 @@ impl<'a> RepositoryUpdater<'a> {
     pub fn update_objects(&mut self, repo: &Repository) -> Result<()> {
         let odb = repo.odb().map_err(|x| SimpleError::from(x))?;
 
-        self.client.diff_object_list(|x: String| {
-            println!("Insert {}", x);
-            let oid = Oid::from_str(&x).unwrap();
+        self.client.diff_object_list(|hash: String| {
+            println!("Insert {}", hash);
+            let oid = Oid::from_str(&hash).unwrap();
             let obj = odb.read(oid).unwrap();
             let kind = obj.kind();
             let size = obj.len();
             let data = obj.data();
 
-            self.client.insert_object_verify(&kind, size, data, &x).unwrap();
+            self.client.insert_object(&hash, &kind, size, data).unwrap();
         })
     }
 

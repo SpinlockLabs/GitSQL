@@ -1,3 +1,4 @@
+-- <PYTHON ONLY> --
 CREATE OR REPLACE FUNCTION git_crawl_tree(root_tree_hash TEXT)
     RETURNS TABLE (
       hash TEXT,
@@ -33,3 +34,4 @@ def crawl_tree(h, typ, name, pname):
 return crawl_tree(root_tree_hash, 'tree', '', '')
 $BODY$
 LANGUAGE 'plpython3u';
+-- </PYTHON ONLY> --

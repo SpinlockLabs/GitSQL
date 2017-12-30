@@ -20,6 +20,11 @@ subcommands:
     about: "List Git References"
 - init:
     about: "Initialize the Git SQL Schema"
+    args:
+    - no-python:
+        short: m
+        long: no-python
+        help: "Disable Python Functions"
 - update:
     about: "Update the SQL Repository"
 - serve:

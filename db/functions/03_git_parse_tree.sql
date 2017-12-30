@@ -1,3 +1,4 @@
+-- <PYTHON ONLY> --
 CREATE OR REPLACE FUNCTION git_parse_tree(tree_hash TEXT, blob BYTEA)
     RETURNS TABLE (
         parent TEXT,
@@ -46,3 +47,4 @@ def parse():
 return parse()
 $BODY$
 LANGUAGE 'plpython3u';
+-- </PYTHON ONLY> --

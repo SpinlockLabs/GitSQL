@@ -10,7 +10,7 @@ clap = { version = "2.29", features = ["yaml"] }
 
 simple-error = "0.1.10"
 
-postgres = "0.15.1"
+postgres = { version = "0.15.1", features = ["with-openssl"] }
 postgres_array = "0.9.0"
 rand = "0.3"
 

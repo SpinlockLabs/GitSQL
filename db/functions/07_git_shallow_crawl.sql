@@ -1,3 +1,4 @@
+-- <PYTHON ONLY> --
 CREATE OR REPLACE FUNCTION git_shallow_crawl(commit_hash TEXT)
     RETURNS TABLE (
       hash TEXT,
@@ -38,3 +39,4 @@ def crawl_commit(cm_hash):
 return crawl_commit(commit_hash)
 $BODY$
 LANGUAGE 'plpython3u';
+-- </PYTHON ONLY> --

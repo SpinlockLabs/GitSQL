@@ -1,3 +1,4 @@
+-- <PYTHON ONLY> --
 CREATE OR REPLACE FUNCTION git_create_pack(xhashes TEXT[])
     RETURNS TABLE (
         part BYTEA
@@ -57,3 +58,4 @@ def create_pack(count, hashes):
 return create_pack(len(xhashes), xhashes)
 $BODY$
 LANGUAGE 'plpython3u';
+-- </PYTHON ONLY> --

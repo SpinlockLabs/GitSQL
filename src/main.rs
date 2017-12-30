@@ -117,15 +117,36 @@ fn main() {
         updater.process_objects(&repo).expect("Failed to load object list.");
         updater.update_objects(&repo).expect("Failed to update objects.");
         updater.update_refs(&repo).expect("Failed to update references");
-    } else if let Some(_) = args.subcommand_matches("init") {
+    } else if let Some(cmd) = args.subcommand_matches("init") {
         if maybe_client.is_none() {
             println!("[ERROR] Please specify a repository to operate on (-r myrepo)");
             exit(1);
         }
         let client = maybe_client.unwrap();
 
-        let sql_file = include_str!(concat!(env!("OUT_DIR"), "/git.rs.sql"));
-        client.run_sql(&sql_file.to_string()).unwrap();
+        let sql_file_content = String::from(include_str!(concat!(env!("OUT_DIR"), "/git.rs.sql")));
+
+        let mut used_file_content = String::new();
+        if cmd.is_present("no-python") {
+            let mut inside_python_section = false;
+            for line in sql_file_content.lines() {
+                if line.contains("<PYTHON ONLY>") {
+                    inside_python_section = true;
+                } else if line.contains("</PYTHON ONLY>") {
+                    inside_python_section = false;
+                    continue;
+                }
+
+                if !inside_python_section {
+                    used_file_content.push_str(line);
+                    used_file_content.push('\n');
+                }
+            }
+        } else {
+            used_file_content.push_str(sql_file_content.as_str());
+        }
+
+        client.run_sql(&used_file_content).unwrap();
         println!("Completed.");
     } else if let Some(_) = args.subcommand_matches("serve") {
         let maybe_server_cfg = conf.get_server_cfg();
