@@ -23,7 +23,6 @@ extern crate lazy_static;
 mod core;
 mod server;
 mod client;
-mod pgutil;
 mod updater;
 
 use std::process::exit;
