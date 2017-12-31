@@ -1,10 +1,7 @@
+DROP FUNCTION IF EXISTS git_lookup_tree(TEXT);
+
 CREATE OR REPLACE FUNCTION git_lookup_tree(tree_hash TEXT)
-    RETURNS TABLE (
-        parent TEXT,
-        mode TEXT,
-        name TEXT,
-        leaf TEXT
-    )
+    RETURNS SETOF "tree_entry"
 AS $BODY$
 DECLARE 
   tmp_content BYTEA;

@@ -1,50 +1,56 @@
--- <PYTHON ONLY> --
+DROP FUNCTION IF EXISTS git_parse_tree(TEXT, BYTEA);
+
 CREATE OR REPLACE FUNCTION git_parse_tree(tree_hash TEXT, blob BYTEA)
-    RETURNS TABLE (
-        parent TEXT,
-        mode TEXT,
-        name TEXT,
-        hash TEXT
-    )
+    RETURNS SETOF tree_entry
 AS $BODY$
-import codecs
-import plpy
+DECLARE
+    buffer BYTEA;
+    b INT;
+    inside_sha INT;
+    tot_len INT;
+    id INT;
+    tmp BYTEA;
+    headers TEXT;
+    mode TEXT;
+    name TEXT;
+BEGIN
+    inside_sha := 0;
+    id := 0;
+    tmp := E'\\000';
+    tot_len := octet_length(blob);
+    buffer := E'';
 
-rblob = blob
-if isinstance(blob, str):
-    tmp = bytearray()
-    tmp.extend(blob)
-    rblob = tmp
+    LOOP
+        IF id = tot_len THEN
+            EXIT;
+        END IF;
 
-def parse_item(buff):
-    parts = buff.split(bytearray([0]), 1)
-    headers = parts[0].decode('ascii').split(' ', 1)
-    sha_bytes = parts[1]
-    return [
-        tree_hash,
-        headers[0],
-        headers[1],
-        codecs.encode(sha_bytes, 'hex').decode('ascii')
-    ]
+        b = get_byte(blob, id);
+        buffer = buffer || set_byte(tmp, 0, b);
 
-def parse():
-    if rblob == None:
-        raise plpy.Fatal("Blob for tree %s does not exist!" % tree_hash)
+        IF b = 0 AND inside_sha = 0 THEN
+            inside_sha = id;
+        END IF;
 
-    buffer = bytearray()
-    inside_sha = 0
-    for i, value in enumerate(rblob):
-        buffer.append(value)
+        IF inside_sha > 0 AND (id - inside_sha) = 20 THEN
+            headers = substring(buffer for (position(E'\\000' in buffer)));
+            mode = substring(headers for (position(E' ' in headers) - 1));
+            name = substring(headers from (octet_length(mode) + 2));
+            name = substring(name for (octet_length(name) - 4));
 
-        if value == 0 and inside_sha == 0:
-            inside_sha = i
+            RETURN NEXT (
+                tree_hash,
+                mode::TEXT,
+                name::TEXT,
+                encode(substring(buffer from octet_length(headers) - 2), 'hex')
+            )::tree_entry;
 
-        if (inside_sha > 0) and (i - inside_sha) == 20:
-            yield parse_item(buffer)
-            inside_sha = 0
-            buffer = bytearray()
+            buffer = b'';
+            inside_sha = 0;
+        END IF;
 
-return parse()
+        id = id + 1;
+    END LOOP;
+END;
 $BODY$
-LANGUAGE 'plpython3u';
--- </PYTHON ONLY> --
+LANGUAGE 'plpgsql';
