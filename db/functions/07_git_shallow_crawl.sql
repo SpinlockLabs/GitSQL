@@ -8,7 +8,7 @@ AS $BODY$
 import plpy
 
 def lookup_tree(h):
-    query = "SELECT t.leaf as leaf, (h.type)::TEXT as type FROM git_lookup_tree('%s') t INNER JOIN headers h ON (h.hash = t.leaf)" % h
+    query = "SELECT t.hash as leaf, (h.type)::TEXT as type FROM git_lookup_tree('%s') t INNER JOIN headers h ON (h.hash = t.hash)" % h
     result = plpy.execute(query)
     return result
 

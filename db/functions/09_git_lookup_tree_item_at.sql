@@ -1,49 +1,42 @@
--- <PYTHON ONLY> --
 CREATE OR REPLACE FUNCTION git_lookup_tree_item_at(path TEXT, commit_hash TEXT)
-    RETURNS TEXT
-AS $BODY$
-import plpy
+    RETURNS TEXT as $BODY$
+DECLARE
+  parts TEXT[];
+  tree_hash TEXT;
+  child_tree_hash TEXT;
+BEGIN
 
+parts := regexp_split_to_array(path, '/');
 
-def lookup_tree(h):
-    return plpy.execute("SELECT t.leaf as leaf, " +
-                        "(h.type)::TEXT as type," +
-                        " t.name FROM" +
-                        (" git_lookup_tree('%s') t INNER JOIN" % h) +
-                        " headers h ON (h.hash = t.leaf)")
+IF array_length(parts, 1) = 0 THEN
+  RETURN NULL;
+END IF;
 
+IF parts[1] = '' THEN
+  parts = array_remove(parts, parts[1]);
+END IF;
+SELECT tree INTO tree_hash FROM git_lookup_commit(commit_hash);
 
-def lookup_commit(c):
-    return plpy.execute("SELECT * FROM git_lookup_commit('%s')" % c)
+IF tree_hash IS NULL OR tree_hash = '' THEN
+  RETURN NULL;
+END IF;
 
+WHILE parts IS NOT NULL AND array_length(parts, 1) > 0 LOOP
+  child_tree_hash := NULL;
+  SELECT hash INTO child_tree_hash FROM git_lookup_tree(tree_hash) WHERE name = parts[1];
+  IF child_tree_hash IS NULL THEN
+    RETURN NULL;
+  END IF;
+  tree_hash := child_tree_hash;
+  parts = array_remove(parts, parts[1]);
+END LOOP;
 
-parts = str(path).split('/')
-if len(parts[0]) == 0:
-    parts.pop()
+IF tree_hash IS NULL THEN
+  RETURN NULL;
+END IF;
 
-commit = lookup_commit(commit_hash)[0]
+RETURN tree_hash;
 
-current_tree = commit["tree"]
-
-for part in parts:
-    tree_to_find = current_tree
-    tree = lookup_tree(tree_to_find)
-    current_tree = None
-    for item in tree:
-        if item["name"] != part:
-            continue
-        current_tree = item["leaf"]
-        break
-    else:
-        break
-
-    if current_tree is None:
-        break
-
-if current_tree is None:
-    return None
-
-return current_tree
+END;
 $BODY$
-LANGUAGE 'plpython3u';
--- </PYTHON ONLY> --
+LANGUAGE 'plpgsql';
