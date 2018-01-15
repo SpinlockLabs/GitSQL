@@ -9,48 +9,60 @@ GitSQL aims to take advantage of the server-side abilities of PostgreSQL to impl
 Git operations using PostgreSQL features. This is still experimental, and is not
 recommended for production use.
 
+## Installation
+
+Install from Git:
+
+```bash
+cargo install git-sql --git https://github.com/SpinlockLabs/GitSQL.git
+```
+
+Install from [crates.io](https://crates.io):
+
+```bash
+cargo install git-sql
+```
+
 ## Usage
 
-- Build and import the database:
+- Create a database in PostgreSQL, such as `gitdb`.
+- Create a configuration file as `gitdb.toml`:
 
-```bash
-./db/scripts/generate.sh
-psql postgres gitdb -f db/build/git.sql
+```toml
+# Repositories are specified under named tables.
+[repositories.mygitrepo]
+# The URL to connect to the database.
+postgres-url = "postgres://127.0.0.1/gitdb"
+# A path to a local repository, used to update the SQL repository.
+local-path = "/path/to/my/local/repo"
+
+# Git Server Configuration
+# URL format: http://myhost:port/mygitrepo
+[server]
+# Binds to the given host and port.
+bind = "0.0.0.0:3020"
 ```
 
-- Install dependencies:
-```bash
-pip3 install -r tools/requirements.txt
-```
-
-- Create a configuration (write this to a known path):
-
-```ini
-[postgres]
-host = localhost
-user = postgres
-
-[databases]
-test.git = gitdb
-
-[local]
-test.git = path/to/git/repo
-```
-
-- Import the Git repository:
+- Initialize the GitSQL schema:
 
 ```bash
-python3 tools/updaters/git_sql_update.py path/to/gitsql.cfg test.git
+git-sql -c config.toml -r mygitrepo init
+```
+
+- Import the Git repository into the SQL database:
+
+```bash
+git-sql -c config.toml -r mygitrepo update
 ```
 
 - Run the Git server:
 
 ```bash
-python3 tools/server/gitsrv.py path/to/gitsql.cfg
+git-sql -c config.toml serve
 ```
 
 - Clone the repository:
 
 ```bash
-git clone http://localhost:8080/test.git
+git clone http://localhost:8080/mygitrepo
 ```

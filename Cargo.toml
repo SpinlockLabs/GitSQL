@@ -1,11 +1,11 @@
 [package]
-name = "gitsql"
+name = "git-sql"
 version = "0.0.1"
 authors = ["Kenneth Endfinger <kaendfinger@gmail.com>"]
 build = "build.rs"
 
 [dependencies]
-git2 = { git = "https://github.com/alexcrichton/git2-rs.git", branch = "master" }
+git2 = "0.6.11"
 clap = { version = "2.29", features = ["yaml"] }
 
 simple-error = "0.1.10"
@@ -29,5 +29,5 @@ toml = "0.4.5"
 glob = "0.2.11"
 
 [[bin]]
-name = "gitsql"
+name = "git-sql"
 path = "src/main.rs"
