@@ -1,5 +1,10 @@
 [package]
 name = "git-sql"
+description = "Git on SQL"
+license = "MIT"
+keywords = ["git", "postgres", "postgresql"]
+readme = "README.md"
+documentation = "https://docs.rs/git-sql"
 version = "0.0.1"
 authors = ["Kenneth Endfinger <kaendfinger@gmail.com>"]
 build = "build.rs"
