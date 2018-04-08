@@ -161,7 +161,7 @@ impl GitSqlClient {
             return Err(SimpleError::from(stmt.err().unwrap()));
         }
 
-        Ok((stmt.unwrap()))
+        Ok(stmt.unwrap())
     }
 
     pub fn add_hashes_to_object_list(
