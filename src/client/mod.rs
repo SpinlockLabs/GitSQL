@@ -187,7 +187,7 @@ impl GitSqlClient {
 
     pub fn diff_object_list<C>(&self, cb: C) -> Result<()>
     where
-        C: Fn(String)
+        C: Fn(String, usize, usize)
     {
         let mut tmp_result = self.conn.execute("CREATE TEMPORARY TABLE objdiff (hash TEXT)", &[]);
         if tmp_result.is_err() {
@@ -210,9 +210,12 @@ impl GitSqlClient {
         }
 
         let rows = result.unwrap();
+        let total = rows.len();
 
+        let mut index = 0;
         for row in &rows {
-            cb(row.get(0));
+            cb(row.get(0), index, total);
+            index = index + 1;
         }
 
         return Ok(());
@@ -282,11 +285,17 @@ impl GitSqlClient {
     }
 
     pub fn set_ref(&self, name: &String, target: &String) -> Result<bool> {
-        let result = self.conn.execute(
+        let mut result = self.conn.execute(
             "INSERT INTO refs (name, target) VALUES ($1, $2) \
              ON CONFLICT (name) DO UPDATE SET target = $3",
             &[name, target, target]
         );
+
+        if result.is_err() {
+            return Err(SimpleError::from(result.err().unwrap()));
+        }
+
+        result = self.conn.execute("NOTIFY git-ref-update $1", &[name]);
 
         if result.is_err() {
             return Err(SimpleError::from(result.err().unwrap()));

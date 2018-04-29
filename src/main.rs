@@ -57,7 +57,7 @@ fn set_db_config(cfg: &GitSqlConfig) {
 }
 
 fn main() {
-    env_logger::init().expect("Failed to configure logger.");
+    env_logger::init();
 
     let yaml = load_yaml!("cli.yaml");
     let args = App::from_yaml(yaml).get_matches();

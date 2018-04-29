@@ -38,7 +38,7 @@ if cfg.getboolean('memcached', 'enabled', fallback=False):
     import pylibmc
 
     servers = str(cfg.get('memcached', 'servers', fallback='127.0.0.1:11211'))
-
+    
     memcached = pylibmc.Client(
         servers.split(' '),
         username=cfg.get('memcached', 'username', fallback=None),

@@ -66,8 +66,10 @@ impl<'a> RepositoryUpdater<'a> {
     pub fn update_objects(&mut self, repo: &Repository) -> Result<()> {
         let odb = repo.odb().map_err(|x| SimpleError::from(x))?;
 
-        self.client.diff_object_list(|hash: String| {
-            println!("Insert {}", hash);
+        self.client.diff_object_list(|hash: String, index: usize, total: usize| {
+            let objn = index + 1;
+            let percentage = (objn as f64 / total as f64) * 100.0;
+            println!("Insert {} ({} of {} objects - {:.2}%)", hash, index + 1, total, percentage);
             let oid = Oid::from_str(&hash).unwrap();
             let obj = odb.read(oid).unwrap();
             let kind = obj.kind();
