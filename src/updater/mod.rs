@@ -7,6 +7,14 @@ use git2::{self, Repository, Reference, Oid};
 
 use postgres::stmt::{Statement};
 
+use r2d2;
+use r2d2_postgres;
+
+use std::sync::Arc;
+use std::sync::atomic::{AtomicUsize, Ordering};
+
+use jobsteal;
+
 pub struct RepositoryUpdater<'a> {
     client: &'a GitSqlClient,
     hashes:  Vec<String>,
@@ -78,6 +86,82 @@ impl<'a> RepositoryUpdater<'a> {
 
             self.client.insert_object(&hash, &kind, size, data).unwrap();
         })
+    }
+
+    pub fn update_objects_chunked(&mut self, repo: &Repository) -> Result<()> {
+        let mut pool = jobsteal::make_pool(10).map_err(|x| SimpleError::from(x))?;
+        let cman = r2d2_postgres::PostgresConnectionManager::new(self.client.url(), r2d2_postgres::TlsMode::None).map_err(|x| SimpleError::from(x))?;
+        let cpool = r2d2::Pool::new(cman).map_err(|x| SimpleError::from(x))?;
+
+        let hashes = self.client.diff_object_list_chunked(500)?;        
+        let rpath = String::from(repo.path().to_str().unwrap());
+
+        let completed_objects = Arc::new(AtomicUsize::new(0));
+
+        let mut index = 0;
+        let chunk_count = hashes.len();
+        for chunk in hashes {
+            let rpath = rpath.clone();
+            let id = index;
+            let cpool = cpool.clone();
+            let completed_objects = completed_objects.clone();
+            pool.submit(move || {
+                let repo = Repository::open(rpath).map_err(|x| SimpleError::from(x)).unwrap();
+                let odb = repo.odb().map_err(|x| SimpleError::from(x)).unwrap();
+                let conn = cpool.get().unwrap();
+                let transact = conn.transaction().unwrap();
+                for hash in &chunk {
+                    let oid = Oid::from_str(&hash).unwrap();
+                    let obj = odb.read(oid).unwrap();
+                    let kind = obj.kind();
+                    let size = obj.len();
+                    let data = obj.data();
+                    GitSqlClient::insert_object_transaction(&transact, &hash, &kind, size, data).unwrap();
+                }
+                transact.commit().unwrap();
+                let completed_count = completed_objects.fetch_add(chunk.len(), Ordering::SeqCst);
+                println!("Completed insertion of chunk {} of {} ({} objects inserted)", id, chunk_count, completed_count);
+            });
+            index = index + 1;
+        }
+
+        Ok(())
+    }
+
+    pub fn update_objects_concurrent(&mut self, repo: &Repository) -> Result<()> {
+        let mut pool = jobsteal::make_pool(10).map_err(|x| SimpleError::from(x))?;
+        let cman = r2d2_postgres::PostgresConnectionManager::new(self.client.url(), r2d2_postgres::TlsMode::None).map_err(|x| SimpleError::from(x))?;
+        let cpool = r2d2::Pool::new(cman).map_err(|x| SimpleError::from(x))?;
+        let hashes = self.client.diff_object_list_direct()?;
+        let completed_objects = Arc::new(AtomicUsize::new(0));
+
+        pool.scope(|scope| {
+            let rpath = String::from(repo.path().to_str().unwrap());
+            let total_count = hashes.len();
+            for hash in hashes {
+                let cpool = cpool.clone();
+                let completed_objects = completed_objects.clone();
+                let rpath = rpath.clone();
+                scope.submit(move || {
+                    let rpo = Repository::open(rpath).map_err(|x| SimpleError::from(x)).unwrap();
+                    let conn = cpool.get().unwrap();
+                    let odb = rpo.odb().map_err(|x| SimpleError::from(x)).unwrap();
+                    let oid = Oid::from_str(&hash).unwrap();
+                    let obj = odb.read(oid).unwrap();
+                    let kind = obj.kind();
+                    let size = obj.len();
+                    let data = obj.data();
+                    GitSqlClient::insert_object_indirect(&conn, &hash, &kind, size, data).unwrap();
+                    let completed_count = completed_objects.fetch_add(1, Ordering::SeqCst);
+                    if completed_count % 100 == 0 {
+                        let percent = (completed_count as f64 / total_count as f64) / 100.0;
+                        println!("Completed insertion of {} out of {} objects ({:.2}%)", completed_count, total_count, percent);
+                    }
+                });
+            }
+        });
+
+        Ok(())
     }
 
     fn process_ref(&mut self, rf: &Reference, name: String) -> Result<()> {

@@ -1,5 +1,13 @@
+#![feature(alloc_system)]
+extern crate alloc_system;
+
 extern crate postgres;
 extern crate postgres_array;
+
+extern crate r2d2;
+extern crate r2d2_postgres;
+
+extern crate jobsteal;
 
 extern crate git2;
 
@@ -96,7 +104,7 @@ fn main() {
         for (name, target) in client.list_refs().unwrap() {
             println!("{} = {}", name, target);
         }
-    } else if let Some(_) = args.subcommand_matches("update") {
+    } else if let Some(cmd) = args.subcommand_matches("update") {
         if maybe_client.is_none() {
             println!("[ERROR] Please specify a repository to operate on (-r myrepo)");
             exit(1);
@@ -114,7 +122,14 @@ fn main() {
         let mut updater = RepositoryUpdater::new(&client).unwrap();
 
         updater.process_objects(&repo).expect("Failed to load object list.");
-        updater.update_objects(&repo).expect("Failed to update objects.");
+
+        if cmd.is_present("parallel") {
+            updater.update_objects_concurrent(&repo).expect("Failed to update objects.");
+        } else if cmd.is_present("chunked") {
+            updater.update_objects_chunked(&repo).expect("Failed to update objects.");
+        } else {
+            updater.update_objects(&repo).expect("Failed to update objects.");
+        }
         updater.update_refs(&repo).expect("Failed to update references");
     } else if let Some(cmd) = args.subcommand_matches("init") {
         if maybe_client.is_none() {

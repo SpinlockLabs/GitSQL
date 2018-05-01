@@ -3,6 +3,7 @@ use core::{SimpleError, Result};
 use postgres::{Connection, TlsMode};
 
 use postgres::stmt::Statement;
+use postgres::transaction::Transaction;
 use postgres::tls::openssl::OpenSsl;
 use postgres_array::Array;
 
@@ -13,19 +14,24 @@ use git2::ObjectType;
 use sha1;
 
 pub struct GitSqlClient {
-    conn: Connection
+    conn: Connection,
+    url: String
 }
 
 #[allow(dead_code)]
 impl GitSqlClient {
     pub fn new(url: String) -> Result<GitSqlClient> {
         let negotiator = OpenSsl::new().unwrap();
-        let result = Connection::connect(url, TlsMode::Prefer(&negotiator));
+        let result = Connection::connect(url.clone(), TlsMode::Prefer(&negotiator));
         if result.is_err() {
             return Err(SimpleError::from(result.err().unwrap()));
         }
         let conn = result.unwrap();
-        return Ok(GitSqlClient { conn });
+        Ok(GitSqlClient::from_conn(conn, url))
+    }
+    
+    pub fn from_conn(conn: Connection, url: String) -> GitSqlClient {
+        GitSqlClient { conn, url }
     }
 
     pub fn read_raw_object(&self, hash: &String) -> Result<Vec<u8>> {
@@ -221,6 +227,79 @@ impl GitSqlClient {
         return Ok(());
     }
 
+    pub fn diff_object_list_direct(&self) -> Result<Vec<String>> {
+        let mut tmp_result = self.conn.execute("CREATE TEMPORARY TABLE objdiff (hash TEXT)", &[]);
+        if tmp_result.is_err() {
+            return Err(SimpleError::from(tmp_result.err().unwrap()));
+        }
+
+        tmp_result = self.conn.execute(
+            "INSERT INTO objdiff (hash) SELECT hash FROM objlist c WHERE NOT EXISTS \
+            (SELECT 1 FROM objects s WHERE s.hash = c.hash)",
+            &[]
+        );
+        if tmp_result.is_err() {
+            return Err(SimpleError::from(tmp_result.err().unwrap()));
+        }
+
+        let result = self.conn.query("SELECT * FROM objdiff", &[]);
+
+        if result.is_err() {
+            return Err(SimpleError::from(result.err().unwrap()));
+        }
+
+        let rows = result.unwrap();
+        let mut hashes : Vec<String> = Vec::new();
+        for row in &rows {
+            hashes.push(row.get(0));
+        }
+        Ok(hashes)
+    }
+
+    pub fn diff_object_list_chunked(&self, chunk_size: usize) -> Result<Vec<Vec<String>>> {
+        let mut tmp_result = self.conn.execute("CREATE TEMPORARY TABLE objdiff (hash TEXT)", &[]);
+        if tmp_result.is_err() {
+            return Err(SimpleError::from(tmp_result.err().unwrap()));
+        }
+
+        tmp_result = self.conn.execute(
+            "INSERT INTO objdiff (hash) SELECT hash FROM objlist c WHERE NOT EXISTS \
+            (SELECT 1 FROM objects s WHERE s.hash = c.hash)",
+            &[]
+        );
+        if tmp_result.is_err() {
+            return Err(SimpleError::from(tmp_result.err().unwrap()));
+        }
+
+        let result = self.conn.query("SELECT * FROM objdiff", &[]);
+
+        if result.is_err() {
+            return Err(SimpleError::from(result.err().unwrap()));
+        }
+
+        let rows = result.unwrap();
+        let mut chunks = Vec::new();
+
+        let mut index = 0;
+
+        let mut buff : Vec<String> = Vec::new();
+
+        for row in &rows {
+            buff.push(row.get(0));
+            if (index % chunk_size) == 0 {
+                chunks.push(buff);
+                buff = Vec::new();
+            }
+            index = index + 1;
+        }
+
+        if buff.len() > 0 {
+            chunks.push(buff);
+        }
+
+        Ok(chunks)
+    }
+
     pub fn end_object_list(&self) -> Result<()> {
         let mut result = self.conn.execute("DROP TABLE objlist", &[]);
 
@@ -247,8 +326,27 @@ impl GitSqlClient {
     }
 
     pub fn insert_object(&self, hash: &String, kind: &ObjectType, size: usize, data: &[u8]) -> Result<()> {
+        GitSqlClient::insert_object_indirect(&self.conn, hash, kind, size, data)
+    }
+
+    pub fn insert_object_indirect(conn: &Connection, hash: &String, kind: &ObjectType, size: usize, data: &[u8]) -> Result<()> {
         let encoded = &GitSqlClient::encode_object(kind, size, data);
-        let result = self.conn.execute(
+        let result = conn.execute(
+            "INSERT INTO objects (hash, content) VALUES ($1, $2) ON CONFLICT DO NOTHING",
+            &[hash, encoded],
+        );
+
+        if result.is_err() {
+            return Err(SimpleError::from(result.err().unwrap()));
+        }
+
+        return Ok(());
+    }
+
+
+    pub fn insert_object_transaction(transact: &Transaction, hash: &String, kind: &ObjectType, size: usize, data: &[u8]) -> Result<()> {
+        let encoded = &GitSqlClient::encode_object(kind, size, data);
+        let result = transact.execute(
             "INSERT INTO objects (hash, content) VALUES ($1, $2) ON CONFLICT DO NOTHING",
             &[hash, encoded],
         );
@@ -295,12 +393,16 @@ impl GitSqlClient {
             return Err(SimpleError::from(result.err().unwrap()));
         }
 
-        result = self.conn.execute("NOTIFY git-ref-update $1", &[name]);
+        result = self.conn.execute("SELECT pg_notify('git_ref_update', $1)", &[name]);
 
         if result.is_err() {
             return Err(SimpleError::from(result.err().unwrap()));
         }
 
         return Ok(result.unwrap() > 0);
+    }
+
+    pub fn url(&self) -> String {
+        return self.url.clone();
     }
 }

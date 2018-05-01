@@ -27,5 +27,14 @@ subcommands:
         help: "Disable Python Functions"
 - update:
     about: "Update the SQL Repository"
+    args:
+    - parallel:
+        short: p
+        long: parallel
+        help: "Enable Parallel Insertion"
+    - chunked:
+        short: j
+        long: chunked
+        help: "Enable Chunked Mode"
 - serve:
     about: "Serve Git Repositories"
