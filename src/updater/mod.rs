@@ -30,7 +30,7 @@ impl<'a> RepositoryUpdater<'a> {
             client,
             hashes: Vec::new(),
             counter: 0,
-            handle: handle
+            handle
         })
     }
 
@@ -120,7 +120,7 @@ impl<'a> RepositoryUpdater<'a> {
                 }
                 transact.commit().unwrap();
                 let completed_count = completed_objects.fetch_add(chunk.len(), Ordering::SeqCst);
-                println!("Completed insertion of chunk {} of {} ({} objects inserted)", id, chunk_count, completed_count);
+                println!("Completed insertion of chunk {} of {} ({} objects inserted)", id, chunk_count, completed_count + chunk.len());
             });
             index = index + 1;
         }

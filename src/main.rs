@@ -71,7 +71,7 @@ fn main() {
     let args = App::from_yaml(yaml).get_matches();
 
     let conf : GitSqlConfig;
-    let mut repo_name : String = "".into();
+    let mut repo_name = String::new();
     let mut maybe_client : Option<GitSqlClient> = None;
 
     if let Some(cfg_path) = args.value_of("config") {
