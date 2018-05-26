@@ -20,7 +20,7 @@ impl typemap::Key for GitSqlServer {
 }
 
 pub struct GitSqlServer {
-    loader: fn(String) -> Option<GitSqlClient>,
+    loader: fn(String) -> Option<GitSqlClient>
 }
 
 impl GitSqlServer {

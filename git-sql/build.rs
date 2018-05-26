@@ -32,7 +32,7 @@ fn main() {
     let src_dir = Path::new(OsStr::new(&src_dir_raw));
     let out_dir = Path::new(OsStr::new(&out_dir_raw));
 
-    let db_dir = src_dir.join("db/");
+    let db_dir = src_dir.join("../db/");
     let sql_file = out_dir.join("git.rs.sql");
 
     let mut file = fs::File::create(sql_file).unwrap();

@@ -4,6 +4,8 @@
 # IDEs
 .idea/
 .vscode/
+*.iml
+
 # Python
 *.pyc
 
@@ -16,7 +18,8 @@ out/
 work/
 venv/
 
-tools/php/gitsql-php.ini
+# PHP
+gitsql-php.ini
 
 # Rust
 target/
