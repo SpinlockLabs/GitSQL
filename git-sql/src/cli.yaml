@@ -36,5 +36,11 @@ subcommands:
         short: j
         long: chunked
         help: "Enable Chunked Mode"
+    - copy-import-file:
+        short: f
+        long: copy-import-file
+        help: "Generate an importable file"
+        value_name: "FILE_PATH"
+        takes_value: true
 - serve:
     about: "Serve Git Repositories"

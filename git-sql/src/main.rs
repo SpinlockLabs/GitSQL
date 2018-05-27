@@ -17,10 +17,12 @@ extern crate logger;
 extern crate env_logger;
 
 extern crate rand;
-extern crate sha1;
-extern crate flate2;
 extern crate toml;
 extern crate simple_error;
+
+extern crate sha1;
+extern crate flate2;
+extern crate hex;
 
 #[macro_use]
 extern crate clap;
@@ -35,6 +37,7 @@ mod updater;
 
 use std::process::exit;
 use std::sync::{Mutex};
+use std::fs::File;
 
 use core::GitSqlConfig;
 use client::GitSqlClient;
@@ -127,6 +130,10 @@ fn main() {
             updater.update_objects_concurrent(&repo).expect("Failed to update objects.");
         } else if cmd.is_present("chunked") {
             updater.update_objects_chunked(&repo).expect("Failed to update objects.");
+        } else if cmd.is_present("copy-import-file") {
+            let path = cmd.value_of("copy-import-file").expect("Failed to get import path.");
+            let mut file = File::create(path).expect("Failed to open import file");
+            updater.generate_copy_csv(&repo, &mut file).expect("Failed to generate file.");
         } else {
             updater.update_objects(&repo).expect("Failed to update objects.");
         }

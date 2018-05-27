@@ -11,7 +11,10 @@ use r2d2;
 use r2d2_postgres;
 
 use std::sync::Arc;
+use std::io;
 use std::sync::atomic::{AtomicUsize, Ordering};
+
+use hex;
 
 use jobsteal;
 
@@ -154,13 +157,37 @@ impl<'a> RepositoryUpdater<'a> {
                     GitSqlClient::insert_object_indirect(&conn, &hash, &kind, size, data).unwrap();
                     let completed_count = completed_objects.fetch_add(1, Ordering::SeqCst);
                     if completed_count % 100 == 0 {
-                        let percent = (completed_count as f64 / total_count as f64) / 100.0;
+                        let percent = (completed_count as f64 / total_count as f64) * 100.0;
                         println!("Completed insertion of {} out of {} objects ({:.2}%)", completed_count, total_count, percent);
                     }
                 });
             }
         });
 
+        Ok(())
+    }
+
+    pub fn generate_copy_csv(&mut self, repo: &Repository, sink: &mut io::Write) -> Result<()> {
+        let hashes = self.client.diff_object_list_direct()?;
+        let mut i = 0;
+        let count = hashes.len();
+
+        let odb = repo.odb().map_err(|x| SimpleError::from(x)).unwrap();
+
+        for hash in hashes {
+            let oid = Oid::from_str(&hash).unwrap();
+            let obj = odb.read(oid).unwrap();
+            let data = obj.data();
+            let encoded = hex::encode(data);
+
+            writeln!(sink, "{}\t\\x{}", &hash, encoded).unwrap();
+            i += 1;
+
+            if (i % 1000) == 0 {
+                let percentage = ((i as f64) / (count as f64)) * 100.0;
+                println!("Wrote {} of {} entries ({:.2}%)", i, count, percentage);
+            }
+        }
         Ok(())
     }
 

@@ -31,10 +31,12 @@ logger = "0.4.*"
 
 env_logger = "0.5.7"
 
-sha1 = "0.6.0"
 flate2 = "1.0.1"
 lazy_static = "1.0.0"
 toml = "0.4.6"
+
+sha1 = "0.6.0"
+hex = "0.3.2"
 
 [build-dependencies]
 glob = "0.2.11"
