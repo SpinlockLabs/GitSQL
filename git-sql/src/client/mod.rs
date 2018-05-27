@@ -382,15 +382,63 @@ impl GitSqlClient {
         return Ok(());
     }
 
-    pub fn set_ref(&self, name: &String, target: &String) -> Result<bool> {
-        let mut result = self.conn.execute(
-            "INSERT INTO refs (name, target) VALUES ($1, $2) \
-             ON CONFLICT (name) DO UPDATE SET target = $3",
-            &[name, target, target]
-        );
+    pub fn has_ref(&self, name: &String) -> Result<bool> {
+        let result = self.conn.query("SELECT COUNT(*) FROM refs WHERE name = $1", &[
+            name
+        ]);
 
         if result.is_err() {
             return Err(SimpleError::from(result.err().unwrap()));
+        }
+
+        let rows = result.unwrap();
+        let row = rows.get(0);
+        let count : i64 = row.get(0);
+        return Ok(count > 0);
+    }
+
+    pub fn read_ref(&self, name: &String) -> Result<String> {
+        let result = self.conn.query("SELECT target FROM refs WHERE name = $1", &[
+            name
+        ]);
+
+        if result.is_err() {
+            return Err(SimpleError::from(result.err().unwrap()));
+        }
+
+        for row in &result.unwrap() {
+            return Ok(row.get(0));
+        }
+
+        return Err(SimpleError::new("Reference not found."));
+    }
+
+    pub fn set_ref(&self, name: &String, target: &String) -> Result<bool> {
+        let mut result;
+
+        if self.has_ref(name)? {
+            if self.read_ref(name)? == *target {
+                return Ok(false);
+            }
+
+            result = self.conn.execute("UPDATE refs SET target = $2 WHERE name = $1", &[
+                name,
+                target
+            ]);
+        } else {
+            result = self.conn.execute(
+                "INSERT INTO refs (name, target) VALUES ($1, $2) \
+                 ON CONFLICT (name) DO UPDATE SET target = $3",
+                &[name, target, target]
+            );
+        }
+
+        if result.is_err() {
+            return Err(SimpleError::from(result.err().unwrap()));
+        }
+
+        if result.unwrap() == 0 {
+            return Ok(false);
         }
 
         result = self.conn.execute("SELECT pg_notify('git_ref_update', $1)", &[name]);
@@ -399,7 +447,7 @@ impl GitSqlClient {
             return Err(SimpleError::from(result.err().unwrap()));
         }
 
-        return Ok(result.unwrap() > 0);
+        return Ok(true);
     }
 
     pub fn url(&self) -> String {

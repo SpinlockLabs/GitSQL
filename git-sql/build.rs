@@ -33,6 +33,9 @@ fn main() {
     let out_dir = Path::new(OsStr::new(&out_dir_raw));
 
     let db_dir = src_dir.join("../db/");
+
+    println!("cargo:rerun-if-changed={}", db_dir.to_str().unwrap());
+
     let sql_file = out_dir.join("git.rs.sql");
 
     let mut file = fs::File::create(sql_file).unwrap();
@@ -45,6 +48,7 @@ fn main() {
     scan_and_append(&mut out, &db_dir, "indexes/*.sql");
     scan_and_append(&mut out, &db_dir, "views/*.sql");
     scan_and_append(&mut out, &db_dir, "functions/*.sql");
+    scan_and_append(&mut out, &db_dir, "caches/*.sql");
 
     file.write_all(out.as_bytes()).unwrap();
 }

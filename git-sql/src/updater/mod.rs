@@ -79,7 +79,7 @@ impl<'a> RepositoryUpdater<'a> {
             self.hashes.clear();
         }
 
-                println!("Loaded {} objects for comparison...", self.counter);
+        println!("Loaded {} objects for comparison...", self.counter);
 
         Ok(())
     }
@@ -145,6 +145,11 @@ impl<'a> RepositoryUpdater<'a> {
         let url = self.client.url();
         let hashes = self.client.diff_object_list_direct()?;
         let count = hashes.len();
+
+        if count == 0 {
+            return Ok(());
+        }
+
         let approximate = (count as f64 / workers as f64).ceil() as usize;
 
         let rpath = String::from(repo.path().to_str().unwrap());
@@ -179,7 +184,7 @@ impl<'a> RepositoryUpdater<'a> {
                     GitSqlClient::insert_object_indirect(&conn, &hash, &kind, size, data).unwrap();
                     pb.inc();
                 }
-                pb.finish_print("done")
+                pb.finish_print(&format!("worker {} : done", worker));
             });
         }
 
