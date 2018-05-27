@@ -42,5 +42,11 @@ subcommands:
         help: "Generate an importable file"
         value_name: "FILE_PATH"
         takes_value: true
+    - workers:
+        short: w
+        long: workers
+        help: "Enable Worker Mode"
+        value_name: "WORKER_COUNT"
+        takes_value: true
 - serve:
     about: "Serve Git Repositories"

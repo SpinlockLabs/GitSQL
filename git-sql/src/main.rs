@@ -24,6 +24,9 @@ extern crate sha1;
 extern crate flate2;
 extern crate hex;
 
+extern crate pbr;
+extern crate console;
+
 #[macro_use]
 extern crate clap;
 
@@ -134,6 +137,10 @@ fn main() {
             let path = cmd.value_of("copy-import-file").expect("Failed to get import path.");
             let mut file = File::create(path).expect("Failed to open import file");
             updater.generate_copy_csv(&repo, &mut file).expect("Failed to generate file.");
+        } else if cmd.is_present("workers") {
+            let worker_string = cmd.value_of("workers").expect("Failed to get the worker argument.");
+            let workers = worker_string.parse::<usize>().unwrap();
+            updater.update_objects_fixed_workers(&repo, workers).expect("Failed to update objects.");
         } else {
             updater.update_objects(&repo).expect("Failed to update objects.");
         }

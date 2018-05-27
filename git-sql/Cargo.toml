@@ -38,6 +38,10 @@ toml = "0.4.6"
 sha1 = "0.6.0"
 hex = "0.3.2"
 
+pbr = "1.0.1"
+
+console = "0.6.1"
+
 [build-dependencies]
 glob = "0.2.11"
 

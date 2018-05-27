@@ -13,6 +13,11 @@ use r2d2_postgres;
 use std::sync::Arc;
 use std::io;
 use std::sync::atomic::{AtomicUsize, Ordering};
+use std::thread;
+
+use postgres;
+
+use pbr;
 
 use hex;
 
@@ -38,8 +43,6 @@ impl<'a> RepositoryUpdater<'a> {
     }
 
     fn callback(&mut self, oid: &Oid) -> bool {
-        self.counter += 1;
-
         let mut hash = String::new();
         write!(&mut hash, "{}", oid).unwrap();
         self.hashes.push(hash);
@@ -49,7 +52,6 @@ impl<'a> RepositoryUpdater<'a> {
                 &self.handle,
                 &self.hashes
             ).unwrap();
-            println!("Loaded {} objects for comparison...", self.counter);
             self.hashes.clear();
         }
 
@@ -58,7 +60,14 @@ impl<'a> RepositoryUpdater<'a> {
 
     pub fn process_objects(&mut self, repo: &Repository) -> Result<()> {
         let odb = repo.odb().map_err(|x| SimpleError::from(x))?;
+
         odb.foreach(|x: &Oid| {
+            self.counter += 1;
+
+            if (self.counter % 10000) == 0 {
+                println!("Loaded {} objects for comparison...", self.counter);
+            }
+
             return self.callback(x);
         }).map_err(|x: git2::Error| SimpleError::new(x.message()))?;
 
@@ -67,9 +76,10 @@ impl<'a> RepositoryUpdater<'a> {
                 &self.handle,
                 &self.hashes
             )?;
-            println!("Loaded {} objects for comparison...", self.counter);
             self.hashes.clear();
         }
+
+                println!("Loaded {} objects for comparison...", self.counter);
 
         Ok(())
     }
@@ -131,6 +141,53 @@ impl<'a> RepositoryUpdater<'a> {
         Ok(())
     }
 
+    pub fn update_objects_fixed_workers(&mut self, repo: &Repository, workers: usize) -> Result<()> {
+        let url = self.client.url();
+        let hashes = self.client.diff_object_list_direct()?;
+        let count = hashes.len();
+        let approximate = (count as f64 / workers as f64).ceil() as usize;
+
+        let rpath = String::from(repo.path().to_str().unwrap());
+
+        let mut mb = pbr::MultiBar::new();
+
+        let mut worker_id = 0;
+
+        for chunked in hashes.chunks(approximate) {
+            let chunk = chunked.to_vec();
+            let rpath = rpath.clone();
+            let rpo = Repository::open(rpath).map_err(|x| SimpleError::from(x)).unwrap();
+            let url = url.clone();
+
+            let mut pb = mb.create_bar(chunk.len() as u64);
+
+            worker_id += 1;
+            let worker = worker_id;
+
+            pb.message(&format!("worker {} : ", worker));
+
+            thread::spawn(move || {
+                let odb = rpo.odb().map_err(|x| SimpleError::from(x)).unwrap();
+                let conn = postgres::Connection::connect(url, postgres::TlsMode::None).unwrap();
+                for hash in chunk {
+                    let oid = Oid::from_str(&hash).unwrap();
+                    let obj = odb.read(oid).unwrap();
+                    let kind = obj.kind();
+                    let size = obj.len();
+                    let data = obj.data();
+
+                    GitSqlClient::insert_object_indirect(&conn, &hash, &kind, size, data).unwrap();
+                    pb.inc();
+                }
+                pb.finish_print("done")
+            });
+        }
+
+        mb.listen();
+
+        Ok(())
+    }
+
     pub fn update_objects_concurrent(&mut self, repo: &Repository) -> Result<()> {
         let mut pool = jobsteal::make_pool(10).map_err(|x| SimpleError::from(x))?;
         let cman = r2d2_postgres::PostgresConnectionManager::new(self.client.url(), r2d2_postgres::TlsMode::None).map_err(|x| SimpleError::from(x))?;
@@ -138,9 +195,10 @@ impl<'a> RepositoryUpdater<'a> {
         let hashes = self.client.diff_object_list_direct()?;
         let completed_objects = Arc::new(AtomicUsize::new(0));
 
+        let total_count = hashes.len();
+
         pool.scope(|scope| {
             let rpath = String::from(repo.path().to_str().unwrap());
-            let total_count = hashes.len();
             for hash in hashes {
                 let cpool = cpool.clone();
                 let completed_objects = completed_objects.clone();
