@@ -14,7 +14,7 @@ BEGIN
     END IF;
 
     SELECT "content" INTO tmp_content FROM "objects" WHERE hash = _hash;
-    RETURN git_parse_object_type(tree_hash, tmp_content);
+    RETURN git_parse_object_type(tmp_content);
 END
 $BODY$
-LANGUAGE 'plpgsql';
+LANGUAGE 'plpgsql' IMMUTABLE;

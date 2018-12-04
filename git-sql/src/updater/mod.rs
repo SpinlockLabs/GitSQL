@@ -221,7 +221,12 @@ impl<'a> RepositoryUpdater<'a> {
                     let completed_count = completed_objects.fetch_add(1, Ordering::SeqCst);
                     if completed_count % 100 == 0 {
                         let percent = (completed_count as f64 / total_count as f64) * 100.0;
-                        println!("Completed insertion of {} out of {} objects ({:.2}%)", completed_count, total_count, percent);
+                        println!(
+                            "Completed insertion of {} out of {} objects ({:.2}%)",
+                            completed_count,
+                            total_count,
+                            percent
+                        );
                     }
                 });
             }

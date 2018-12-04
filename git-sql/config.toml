@@ -1,0 +1,3 @@
+[repositories.linux]
+postgres-url = "postgres://postgres@127.0.0.1/linux"
+local-path = "/Users/kendfinger/Code/External/linux/.git"
