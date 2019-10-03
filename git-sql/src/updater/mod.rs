@@ -230,7 +230,7 @@ impl<'a> RepositoryUpdater<'a> {
         Ok(())
     }
 
-    pub fn generate_copy_csv(&mut self, repo: &Repository, sink: &mut io::Write) -> Result<()> {
+    pub fn generate_copy_csv(&mut self, repo: &Repository, sink: &mut dyn io::Write) -> Result<()> {
         let hashes = self.client.diff_object_list_direct()?;
         let mut i = 0;
         let count = hashes.len();

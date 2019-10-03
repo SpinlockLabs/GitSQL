@@ -1,9 +1,10 @@
-DROP FUNCTION IF EXISTS git_fast_object_type(TEXT);
+DROP FUNCTION IF EXISTS git_fast_object_type(TEXT) CASCADE;
 
 CREATE OR REPLACE FUNCTION git_fast_object_type(_hash TEXT)
     RETURNS TEXT
+    IMMUTABLE
 AS $BODY$
-DECLARE 
+DECLARE
   tmp_content BYTEA;
   tmp_type_cached OBJTYPE;
 BEGIN
@@ -14,7 +15,7 @@ BEGIN
     END IF;
 
     SELECT "content" INTO tmp_content FROM "objects" WHERE hash = _hash;
-    RETURN git_parse_object_type(tree_hash, tmp_content);
+    RETURN git_parse_object_type(tmp_content);
 END
 $BODY$
 LANGUAGE 'plpgsql';

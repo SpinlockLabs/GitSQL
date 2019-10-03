@@ -4,7 +4,7 @@ use postgres::{Connection, TlsMode};
 
 use postgres::stmt::Statement;
 use postgres::transaction::Transaction;
-use postgres::tls::openssl::OpenSsl;
+use postgres_openssl::OpenSsl;
 use postgres_array::Array;
 
 use std::fmt::{Write};

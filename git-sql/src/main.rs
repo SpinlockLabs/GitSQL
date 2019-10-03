@@ -1,8 +1,8 @@
-#![feature(alloc_system)]
-extern crate alloc_system;
-
 extern crate postgres;
+extern crate postgres_openssl;
 extern crate postgres_array;
+
+extern crate openssl;
 
 extern crate r2d2;
 extern crate r2d2_postgres;
