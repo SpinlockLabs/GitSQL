@@ -17,6 +17,7 @@ fn scan_and_append(out: &mut String, dir: &Path, gb: &str) {
 
     for entry in glob(pat.as_str()).unwrap() {
         if let Ok(path) = entry {
+            println!("cargo:rerun-if-changed={}", path.to_str().unwrap());
             let mut f = fs::File::open(path).unwrap();
             let mut content = String::new();
             f.read_to_string(&mut content).unwrap();
